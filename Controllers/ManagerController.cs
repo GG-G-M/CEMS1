@@ -130,7 +130,33 @@ namespace CEMS.Controllers
             // budget per category
             var budgets = await _db.Budgets.Select(b => new { b.Category, b.Allocated, b.Spent }).ToListAsync();
 
-            return Json(new { totalPending, approved, rejected, overBudgetCount, budgets });
+            // Top submitters (by number of reports)
+            var topSubmittersRaw = await _db.ExpenseReports
+                .Where(r => r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .GroupBy(r => r.UserId)
+                .Select(g => new { UserId = g.Key, Count = g.Count() })
+                .OrderByDescending(x => x.Count)
+                .Take(5)
+                .ToListAsync();
+
+            var topSubmitterIds = topSubmittersRaw.Select(t => t.UserId).Where(id => id != null).Distinct().ToList();
+            var topSubmitterUsers = await _userManager.Users.Where(u => topSubmitterIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
+            var topSubmitters = topSubmittersRaw.Select(t => new { username = t.UserId != null && topSubmitterUsers.ContainsKey(t.UserId) ? topSubmitterUsers[t.UserId] : "Unknown", count = t.Count }).ToList();
+
+            // Top reimbursed drivers (by total reimbursed amount)
+            var topReimbursedRaw = await _db.ExpenseReports
+                .Where(r => r.Reimbursed && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .GroupBy(r => r.UserId)
+                .Select(g => new { UserId = g.Key, Total = g.Sum(x => x.TotalAmount) })
+                .OrderByDescending(x => x.Total)
+                .Take(5)
+                .ToListAsync();
+
+            var topReimbursedIds = topReimbursedRaw.Select(t => t.UserId).Where(id => id != null).Distinct().ToList();
+            var topReimbursedUsers = await _userManager.Users.Where(u => topReimbursedIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
+            var topReimbursed = topReimbursedRaw.Select(t => new { username = t.UserId != null && topReimbursedUsers.ContainsKey(t.UserId) ? topReimbursedUsers[t.UserId] : "Unknown", total = t.Total }).ToList();
+
+            return Json(new { totalPending, approved, rejected, overBudgetCount, budgets, topSubmitters, topReimbursed });
         }
 
         public async Task<IActionResult> OverBudget()

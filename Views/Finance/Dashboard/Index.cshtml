@@ -196,11 +196,11 @@
             <form id="financeFilters" class="row g-3" method="get" action="@Context.Request.Path">
                 <div class="col-md-3">
                     <label class="form-label">From</label>
-                    <input type="date" name="start" id="filterStart" class="form-control form-control-sm" value="@Context.Request.Query["start"]" />
+                    <input type="date" name="start" id="filterStart" class="form-control form-control-sm" value="@(string.IsNullOrEmpty((string)Context.Request.Query["start"]) ? (string)ViewBag.FilterStart : (string)Context.Request.Query["start"])" />
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">To</label>
-                    <input type="date" name="end" id="filterEnd" class="form-control form-control-sm" value="@Context.Request.Query["end"]" />
+                    <input type="date" name="end" id="filterEnd" class="form-control form-control-sm" value="@(string.IsNullOrEmpty((string)Context.Request.Query["end"]) ? (string)ViewBag.FilterEnd : (string)Context.Request.Query["end"])" />
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Quick Filter</label>
@@ -405,12 +405,16 @@ async function loadFinanceMetrics(){
 
         const res = await fetch(url);
         const data = await res.json();
+
+        // Update stat cards dynamically
+        document.getElementById('toProcessVal').textContent = ((data.toProcess ?? 0).toFixed(2));
         document.getElementById('processedVal').textContent = ((data.processedToday ?? 0).toFixed(2));
         document.getElementById('processedCount').textContent = (data.processedCount ?? 0);
         document.getElementById('monthlyVal').textContent = ((data.monthlyTotal ?? 0).toFixed(2));
         document.getElementById('monthlyCount').textContent = (data.monthlyCount ?? 0);
 
-        const toProcess = Number('@(((decimal?)ViewBag.TotalToProcess ?? 0m).ToString(System.Globalization.CultureInfo.InvariantCulture))');
+        // render trend using dynamic toProcess value from API
+        var toProcess = data.toProcess ?? 0;
         renderFinanceTrendChart(toProcess, data.processedToday ?? 0, data.monthlyTotal ?? 0);
         renderCategoryChart(data.categories || []);
         renderMonthlyBreakdown(data.monthlyData || [], data.categories || []);

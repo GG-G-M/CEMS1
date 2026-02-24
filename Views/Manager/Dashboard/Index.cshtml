@@ -302,6 +302,29 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Top Drivers -->
+                <div class="dash-card mt-3">
+                    <div class="dash-card-head">
+                        <div class="dash-card-title"><i class="bi bi-person-lines-fill"></i> Top Submitters</div>
+                    </div>
+                    <div class="dash-card-body" style="padding:12px 14px;">
+                        <div id="topSubmittersList">
+                            <p class="text-center py-3" style="color:var(--d-muted);">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dash-card mt-3">
+                    <div class="dash-card-head">
+                        <div class="dash-card-title"><i class="bi bi-wallet2"></i> Top Reimbursed Drivers</div>
+                    </div>
+                    <div class="dash-card-body" style="padding:12px 14px;">
+                        <div id="topReimbursedList">
+                            <p class="text-center py-3" style="color:var(--d-muted);">Loading...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -455,6 +478,44 @@
             }
 
             renderManagerBudgetChart(data.budgets || []);
+
+            // render top submitters
+            var tsContainer = document.getElementById('topSubmittersList');
+            if (tsContainer) {
+                tsContainer.innerHTML = '';
+                if (data.topSubmitters && data.topSubmitters.length > 0) {
+                    data.topSubmitters.forEach(function (t, idx) {
+                        var div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.justifyContent = 'space-between';
+                        div.style.padding = '6px 0';
+                        div.style.borderBottom = idx < data.topSubmitters.length - 1 ? '1px solid var(--d-border)' : 'none';
+                        div.innerHTML = '<div style="font-weight:600">' + (idx+1) + '. ' + (t.username || 'Unknown') + '</div><div style="color:var(--d-muted)">' + (t.count || 0) + ' reports</div>';
+                        tsContainer.appendChild(div);
+                    });
+                } else {
+                    tsContainer.innerHTML = '<p class="text-center py-2" style="color:var(--d-muted);">No submitters yet.</p>';
+                }
+            }
+
+            // render top reimbursed
+            var trContainer = document.getElementById('topReimbursedList');
+            if (trContainer) {
+                trContainer.innerHTML = '';
+                if (data.topReimbursed && data.topReimbursed.length > 0) {
+                    data.topReimbursed.forEach(function (t, idx) {
+                        var div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.justifyContent = 'space-between';
+                        div.style.padding = '6px 0';
+                        div.style.borderBottom = idx < data.topReimbursed.length - 1 ? '1px solid var(--d-border)' : 'none';
+                        div.innerHTML = '<div style="font-weight:600">' + (idx+1) + '. ' + (t.username || 'Unknown') + '</div><div style="color:var(--d-muted)">₱' + (t.total || 0).toFixed(2) + '</div>';
+                        trContainer.appendChild(div);
+                    });
+                } else {
+                    trContainer.innerHTML = '<p class="text-center py-2" style="color:var(--d-muted);">No reimbursed reports yet.</p>';
+                }
+            }
         } catch (e) {
             console.error('Manager metrics error:', e);
         }

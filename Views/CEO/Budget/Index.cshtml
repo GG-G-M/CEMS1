@@ -44,9 +44,9 @@
         color: #fff;
     }
 
-    .btn-outline-danger {
-        border: 1px solid var(--d-danger);
-        color: var(--d-danger);
+    .btn-outline-success {
+        border: 1px solid #10b981;
+        color: #10b981;
         background: transparent;
         font-weight: 600;
         border-radius: 6px;
@@ -55,9 +55,18 @@
         transition: all 0.2s;
     }
 
-    .btn-outline-danger:hover {
-        background: var(--d-danger);
+    .btn-outline-success:hover {
+        background: #10b981;
         color: #fff;
+    }
+
+    .btn-outline-success.inactive {
+        border-color: #9ca3af;
+        color: #9ca3af;
+    }
+
+    .btn-outline-success.inactive:hover {
+        background: #9ca3af;
     }
 
     .action-buttons {
@@ -172,15 +181,17 @@
             <!-- Current Budgets Section -->
             <div class="col-lg-8">
                 <div class="table-card">
-                    <div class="table-card-head" style="justify-content: space-between;">
+                    <div class="table-card-head" style="justify-content: space-between; align-items: center; margin-bottom: 16px;">
                         <span style="display:flex;align-items:center;gap:8px;">
                             <i class="bi bi-list-ul"></i>
                             Current Budgets
                         </span>
-                        <div style="position:relative;max-width:220px;width:100%;">
-                            <i class="bi bi-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--d-muted);font-size:.85rem;pointer-events:none;"></i>
-                            <input type="text" id="budgetSearch" placeholder="Search category..."
-                                   style="width:100%;padding:7px 10px 7px 32px;border:1px solid var(--d-border);border-radius:6px;font-size:.85rem;color:var(--d-text);outline:none;"
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <div style="position:relative;max-width:280px;">
+                            <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--d-muted);font-size:.9rem;pointer-events:none;"></i>
+                            <input type="text" id="budgetSearch" placeholder="Search by category name..."
+                                   style="width:100%;padding:10px 12px 10px 36px;border:1px solid var(--d-border);border-radius:6px;font-size:.9rem;color:var(--d-text);outline:none;transition:all 0.2s;"
                                    oninput="filterBudgets()" />
                         </div>
                     </div>
@@ -224,11 +235,11 @@
                                                     <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal" onclick="loadBudgetData(@b.Id, '@b.Category', @b.Allocated.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture))">
                                                         <i class="bi bi-pencil"></i>
                                                     </button>
-                                                    <form method="post" asp-action="DeleteBudget" asp-controller="CEO" onsubmit="return confirm('Are you sure you want to delete this budget?');" style="display:inline-block;">
+                                                    <form method="post" asp-action="ToggleBudgetStatus" asp-controller="CEO" style="display:inline-block;">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="id" value="@b.Id" />
-                                                        <button type="submit" class="btn btn-outline-danger">
-                                                            <i class="bi bi-trash"></i>
+                                                        <button type="submit" class="btn btn-outline-success @(b.IsActive ? "" : "inactive")" title="@(b.IsActive ? "Deactivate" : "Activate")">
+                                                            <i class="bi @(b.IsActive ? "bi-check-circle" : "bi-x-circle")"></i>
                                                         </button>
                                                     </form>
                                                 </div>
@@ -347,6 +358,44 @@
         });
         var empty = document.getElementById('budgetEmptySearch');
         if (empty) empty.style.display = visible === 0 ? '' : 'none';
+    }
+</script>
+
+<script>
+    async function toggleBudgetStatusAjax(id, btn) {
+        try {
+            var token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            var formData = new FormData();
+            formData.append('id', id);
+
+            var resp = await fetch('/CEO/ToggleBudgetStatusAjax', {
+                method: 'POST',
+                headers: { 'RequestVerificationToken': token },
+                body: formData
+            });
+            var json = await resp.json();
+            if (json.success) {
+                // toggle button appearance
+                if (json.isActive) {
+                    btn.classList.remove('inactive');
+                    btn.title = 'Deactivate';
+                    btn.querySelector('i').className = 'bi bi-check-circle';
+                    // ensure row not dimmed
+                    btn.closest('tr').style.opacity = '';
+                } else {
+                    btn.classList.add('inactive');
+                    btn.title = 'Activate';
+                    btn.querySelector('i').className = 'bi bi-x-circle';
+                    // dim row to indicate inactive
+                    btn.closest('tr').style.opacity = '0.6';
+                }
+            } else {
+                alert(json.message || 'Failed to update status');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to update status');
+        }
     }
 </script>
 

@@ -45,6 +45,19 @@ namespace CEMS.Controllers
             var userIds = reports.Select(r => r.UserId).Where(id => id != null).Distinct().ToList();
             var users = await _userManager.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
 
+            // Also load profile display names (Driver/Manager/CEO/Finance) to show full names instead of emails
+            var profileNames = new Dictionary<string, string>();
+            var driverProfiles = await _db.DriverProfiles.Where(p => userIds.Contains(p.UserId)).ToListAsync();
+            foreach (var p in driverProfiles) profileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+            var managerProfiles = await _db.ManagerProfiles.Where(p => userIds.Contains(p.UserId)).ToListAsync();
+            foreach (var p in managerProfiles) profileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+            var financeProfiles = await _db.FinanceProfiles.Where(p => userIds.Contains(p.UserId)).ToListAsync();
+            foreach (var p in financeProfiles) profileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+            var ceoProfiles = await _db.CEOProfiles.Where(p => userIds.Contains(p.UserId)).ToListAsync();
+            foreach (var p in ceoProfiles) profileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+
+            ViewBag.UserFullNames = profileNames;
+
             var dto = reports.Select(r => new PendingExpenseReportDto { Report = r, UserName = r.UserId != null && users.ContainsKey(r.UserId) ? users[r.UserId] : "Unknown" }).ToList();
             ViewBag.Reports = dto;
             ViewBag.PendingCount = dto.Count;
@@ -90,24 +103,36 @@ namespace CEMS.Controllers
             var processedCount = await processedQuery.CountAsync();
             var processedTotal = await processedQuery.SumAsync(a => (decimal?)(a.Report != null ? a.Report.TotalAmount : 0m)) ?? 0m;
 
-            // monthly trend for last 6 months (based on decision date)
-            var months = Enumerable.Range(0, 6).Select(i => DateTime.UtcNow.AddMonths(-i)).Select(d => new { d.Year, d.Month }).Reverse().ToList();
+            // to-process reports in the selected range
+            var toProcessQuery = _db.ExpenseReports
+                .Where(r => r.Status == ReportStatus.Approved && !r.Reimbursed)
+                .Where(r => (r.BudgetCheck == BudgetCheckStatus.WithinBudget) || (r.CEOApproved == true))
+                .Where(r => r.SubmissionDate >= startDate && r.SubmissionDate < endExclusive);
+            var toProcessCount = await toProcessQuery.CountAsync();
+            var toProcessTotal = await toProcessQuery.SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
+
+            // monthly trend for the selected range (group by month). If the range is empty, defaults to current month range above.
             var monthlyData = new List<object>();
-            foreach (var m in months)
+            // build list of month starts between startDate and endDate
+            var monthCursor = new DateTime(startDate.Year, startDate.Month, 1);
+            var lastMonth = new DateTime(endDate.Year, endDate.Month, 1);
+            while (monthCursor <= lastMonth)
             {
-                var mStart = new DateTime(m.Year, m.Month, 1);
+                var mStart = monthCursor;
                 var mEnd = mStart.AddMonths(1);
                 var total = await _db.Approvals
                     .Include(a => a.Report)
                     .Where(a => a.Stage == "Finance" && a.Status == ApprovalStatus.Approved && a.DecisionDate.HasValue && a.DecisionDate.Value >= mStart && a.DecisionDate.Value < mEnd)
                     .SumAsync(a => (decimal?)(a.Report != null ? a.Report.TotalAmount : 0m)) ?? 0m;
                 monthlyData.Add(new { label = mStart.ToString("MMM yyyy"), total });
+                monthCursor = monthCursor.AddMonths(1);
             }
 
             // category breakdown for reimbursed reports
+            // category breakdown for reimbursed reports within the selected date range
             var categoryData = await _db.ExpenseItems
                 .Include(i => i.Report)
-                .Where(i => i.Report != null && i.Report.Reimbursed)
+                .Where(i => i.Report != null && i.Report.Reimbursed && i.Report.SubmissionDate >= startDate && i.Report.SubmissionDate < endExclusive)
                 .GroupBy(i => i.Category)
                 .Select(g => new { Category = g.Key, Total = g.Sum(i => (decimal?)i.Amount) ?? 0m })
                 .OrderByDescending(x => x.Total)
@@ -116,6 +141,8 @@ namespace CEMS.Controllers
 
             return Json(new
             {
+                toProcess = toProcessTotal,
+                toProcessCount = toProcessCount,
                 processedToday = processedTotal,
                 processedCount = processedCount,
                 monthlyTotal = processedTotal,
@@ -126,18 +153,101 @@ namespace CEMS.Controllers
         }
 
         // List approved reports (visible to finance) — either within budget or CEO approved
-        public async Task<IActionResult> ApprovedReports()
+        public async Task<IActionResult> ApprovedReports(DateTime? start, DateTime? end, string? reimbursed)
         {
-            var reports = await _db.ExpenseReports
+            var now = DateTime.UtcNow.Date;
+            var startDate = start?.Date ?? new DateTime(now.Year, now.Month, 1);
+            var endDate = end?.Date ?? now;
+            var endExclusive = endDate.AddDays(1);
+
+            // base query: approved and eligible for finance
+            var q = _db.ExpenseReports
                 .Where(r => r.Status == ReportStatus.Approved && (r.BudgetCheck == BudgetCheckStatus.WithinBudget || r.CEOApproved == true))
-                .OrderByDescending(r => r.SubmissionDate)
-                .ToListAsync();
+                .Where(r => r.SubmissionDate >= startDate && r.SubmissionDate < endExclusive);
+
+            // reimbursed filter: support pending (no payment), initiated (payment record exists), done (report.Reimbursed == true)
+            reimbursed = (reimbursed ?? "pending").ToLowerInvariant();
+            if (reimbursed == "pending")
+            {
+                q = q.Where(r => !r.Reimbursed && !_db.ReimbursementPayments.Any(p => p.ReportId == r.Id && p.Status != "expired"));
+            }
+            else if (reimbursed == "initiated")
+            {
+                q = q.Where(r => !r.Reimbursed && _db.ReimbursementPayments.Any(p => p.ReportId == r.Id && p.Status != "expired"));
+            }
+            else if (reimbursed == "done")
+            {
+                q = q.Where(r => r.Reimbursed);
+            }
+
+            var reports = await q.OrderByDescending(r => r.SubmissionDate).ToListAsync();
 
             var userIds = reports.Select(r => r.UserId).Where(id => id != null).Distinct().ToList();
             var users = await _userManager.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
 
             var dto = reports.Select(r => new PendingExpenseReportDto { Report = r, UserName = r.UserId != null && users.ContainsKey(r.UserId) ? users[r.UserId] : "Unknown" }).ToList();
             ViewBag.ApprovedReports = dto;
+
+            // load payment records for these reports so the view can show "Initiated" state
+            var reportIds = reports.Select(r => r.Id).ToList();
+            var payments = await _db.ReimbursementPayments
+                .Where(p => reportIds.Contains(p.ReportId))
+                .ToListAsync();
+            var paymentsMap = payments.GroupBy(p => p.ReportId).ToDictionary(g => g.Key, g => g.OrderByDescending(p => p.CreatedAt).First());
+            ViewBag.Payments = paymentsMap;
+
+            // load approvals for these reports so we can show approver names (one-per-stage, latest decision)
+            var approvalsList = await _db.Approvals
+                .Where(a => reportIds.Contains(a.ReportId) && a.Status == ApprovalStatus.Approved)
+                .ToListAsync();
+
+            var approverIds = approvalsList.Select(a => a.ApprovedByUserId).Where(id => id != null).Distinct().ToList();
+            var approverUsers = await _userManager.Users.Where(u => approverIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
+
+            // load approver profile names for nicer display
+            var approverProfileNames = new Dictionary<string, string>();
+            if (approverIds.Any())
+            {
+                var mgrs = await _db.ManagerProfiles.Where(p => approverIds.Contains(p.UserId)).ToListAsync();
+                foreach (var p in mgrs) if (!approverProfileNames.ContainsKey(p.UserId)) approverProfileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+
+                var fins = await _db.FinanceProfiles.Where(p => approverIds.Contains(p.UserId)).ToListAsync();
+                foreach (var p in fins) if (!approverProfileNames.ContainsKey(p.UserId)) approverProfileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+
+                var ceos = await _db.CEOProfiles.Where(p => approverIds.Contains(p.UserId)).ToListAsync();
+                foreach (var p in ceos) if (!approverProfileNames.ContainsKey(p.UserId)) approverProfileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+
+                var drs = await _db.DriverProfiles.Where(p => approverIds.Contains(p.UserId)).ToListAsync();
+                foreach (var p in drs) if (!approverProfileNames.ContainsKey(p.UserId)) approverProfileNames[p.UserId] = p.FullName ?? p.User?.UserName ?? p.UserId;
+            }
+
+            // Build mapping: ReportId -> (Stage -> approverName)
+            var approvalsMap = new Dictionary<int, Dictionary<string, string>>();
+            var groupedByReport = approvalsList.GroupBy(a => a.ReportId);
+            foreach (var grp in groupedByReport)
+            {
+                var stageMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var byStage = grp.GroupBy(a => (a.Stage ?? string.Empty).Trim());
+                foreach (var sgrp in byStage)
+                {
+                    // pick latest approval for the stage
+                    var latest = sgrp.OrderByDescending(a => a.DecisionDate).FirstOrDefault();
+                    if (latest == null) continue;
+                    string name = "Unknown";
+                    if (!string.IsNullOrEmpty(latest.ApprovedByUserId))
+                    {
+                        if (approverProfileNames.ContainsKey(latest.ApprovedByUserId)) name = approverProfileNames[latest.ApprovedByUserId];
+                        else if (approverUsers.ContainsKey(latest.ApprovedByUserId)) name = approverUsers[latest.ApprovedByUserId];
+                        else name = latest.ApprovedByUserId;
+                    }
+                    stageMap[sgrp.Key] = name;
+                }
+                approvalsMap[grp.Key] = stageMap;
+            }
+            ViewBag.ReportApprovals = approvalsMap;
+            ViewBag.FilterStart = startDate.ToString("yyyy-MM-dd");
+            ViewBag.FilterEnd = endDate.ToString("yyyy-MM-dd");
+            ViewBag.FilterReimbursed = reimbursed;
             return View("ApprovedReports/Index");
         }
 

@@ -456,6 +456,56 @@ namespace CEMS.Controllers
             return RedirectToAction("Budget");
         }
 
+        [HttpPost]
+        [Route("CEO/ToggleBudgetStatus")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleBudgetStatus(int id)
+        {
+            var budget = await _db.Budgets.FindAsync(id);
+            if (budget == null) return NotFound();
+
+            budget.IsActive = !budget.IsActive;
+
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Action = "ToggleBudgetStatus",
+                Module = "Budget Management",
+                Role = "CEO",
+                PerformedByUserId = _userManager.GetUserId(User),
+                RelatedRecordId = budget.Id,
+                Details = $"Set budget '{budget.Category}' active={budget.IsActive}"
+            });
+
+            await _db.SaveChangesAsync();
+            TempData["Success"] = $"Budget '{budget.Category}' is now {(budget.IsActive ? "active" : "inactive")}.";
+            return RedirectToAction("Budget");
+        }
+
+        [HttpPost]
+        [Route("CEO/ToggleBudgetStatusAjax")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ToggleBudgetStatusAjax(int id)
+        {
+            var budget = await _db.Budgets.FindAsync(id);
+            if (budget == null) return Json(new { success = false, message = "Budget not found" });
+
+            budget.IsActive = !budget.IsActive;
+
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Action = "ToggleBudgetStatusAjax",
+                Module = "Budget Management",
+                Role = "CEO",
+                PerformedByUserId = _userManager.GetUserId(User),
+                RelatedRecordId = budget.Id,
+                Details = $"Set budget '{budget.Category}' active={budget.IsActive} via AJAX"
+            });
+
+            await _db.SaveChangesAsync();
+
+            return Json(new { success = true, isActive = budget.IsActive });
+        }
+
         // ───────────── Expense Overview ─────────────
         public async Task<IActionResult> ExpenseOverview(string? category, string? status, DateTime? start, DateTime? end)
         {

@@ -14,5 +14,8 @@ namespace CEMS.Models
         public decimal Allocated { get; set; }
 
         public decimal Spent { get; set; }
+        
+        // Indicates whether this budget is active. Defaults to true for existing budgets.
+        public bool IsActive { get; set; } = true;
     }
 }
