@@ -292,7 +292,32 @@ namespace CEMS.Controllers
             var topReimbursedUsers = await _userManager.Users.Where(u => topReimbursedIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
             var topReimbursed = topReimbursedRaw.Select(t => new { username = t.UserId != null && topReimbursedUsers.ContainsKey(t.UserId) ? topReimbursedUsers[t.UserId] : "Unknown", total = t.Total }).ToList();
 
-            return Json(new { totalPending, approved, rejected, overBudgetCount, approvedTodayCount, approvedTodayTotal, budgets, topSubmitters, topReimbursed });
+            // Report status counts
+            var submittedCount = await _db.ExpenseReports
+                .Where(r => r.Status == ReportStatus.Submitted && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .CountAsync();
+            var approvedCount = await _db.ExpenseReports
+                .Where(r => r.Status == ReportStatus.Approved && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .CountAsync();
+            var rejectedCount = await _db.ExpenseReports
+                .Where(r => r.Status == ReportStatus.Rejected && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .CountAsync();
+
+            // Monthly spending trend (last 6 months)
+            var monthLabels = new List<string>();
+            var monthTotals = new List<decimal>();
+            for (int i = 5; i >= 0; i--)
+            {
+                var ms = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-i);
+                var me = ms.AddMonths(1).AddDays(-1);
+                monthLabels.Add(ms.ToString("MMM"));
+                var mt = await _db.ExpenseReports
+                    .Where(r => r.SubmissionDate >= ms && r.SubmissionDate <= me)
+                    .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
+                monthTotals.Add(mt);
+            }
+
+            return Json(new { totalPending, approved, rejected, overBudgetCount, approvedTodayCount, approvedTodayTotal, budgets, topSubmitters, topReimbursed, submittedCount, approvedCount, rejectedCount, monthLabels, monthTotals });
         }
 
         public async Task<IActionResult> OverBudget(DateTime? start, DateTime? end)

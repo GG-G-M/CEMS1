@@ -113,6 +113,30 @@ namespace CEMS.Controllers
             ViewBag.RejectedCount = rejected;
             ViewBag.PendingApprovalCount = pendingApproval;
 
+            // ── Category Budget Breakdown ──
+            var categoryLabels = budgets.Select(b => b.Category).ToList();
+            var categoryAllocated = budgets.Select(b => b.Allocated).ToList();
+            var categorySpent = budgets.Select(b => b.Spent).ToList();
+            ViewBag.CategoryLabels = System.Text.Json.JsonSerializer.Serialize(categoryLabels);
+            ViewBag.CategoryAllocated = System.Text.Json.JsonSerializer.Serialize(categoryAllocated);
+            ViewBag.CategorySpent = System.Text.Json.JsonSerializer.Serialize(categorySpent);
+
+            // ── Monthly Spending Trend (Last 6 Months) ──
+            var monthLabels = new List<string>();
+            var monthTotals = new List<decimal>();
+            for (int i = 5; i >= 0; i--)
+            {
+                var ms = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).AddMonths(-i);
+                var me = ms.AddMonths(1).AddDays(-1);
+                monthLabels.Add(ms.ToString("MMM"));
+                var mt = await _db.ExpenseReports
+                    .Where(r => r.SubmissionDate >= ms && r.SubmissionDate <= me)
+                    .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
+                monthTotals.Add(mt);
+            }
+            ViewBag.MonthLabels = System.Text.Json.JsonSerializer.Serialize(monthLabels);
+            ViewBag.MonthTotals = System.Text.Json.JsonSerializer.Serialize(monthTotals);
+
             // Store filter dates for view
             ViewBag.FilterStart = startDate.ToString("yyyy-MM-dd");
             ViewBag.FilterEnd = endDate.ToString("yyyy-MM-dd");

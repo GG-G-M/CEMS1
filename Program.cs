@@ -43,6 +43,9 @@ builder.Services.ConfigureApplicationCookie(options =>
 // ✅ Ensure SignInManager is available
 builder.Services.AddScoped<SignInManager<IdentityUser>>();
 
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<FuelPriceService>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
