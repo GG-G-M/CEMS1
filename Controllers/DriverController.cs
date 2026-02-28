@@ -181,6 +181,9 @@ namespace CEMS.Controllers
             var budgets = await _db.Budgets.ToListAsync();
             ViewBag.Budgets = budgets;
 
+            // Load active categories for the edit modal dropdown
+            ViewBag.Categories = budgets.Where(b => b.IsActive).OrderBy(b => b.Category).Select(b => b.Category).Distinct().ToList();
+
             // Load approval remarks for rejected/approved reports (only for visible reports to reduce load)
             var reportIds = reports.Select(r => r.Id).ToList();
             var approvals = await _db.Approvals

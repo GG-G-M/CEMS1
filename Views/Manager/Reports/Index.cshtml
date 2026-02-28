@@ -435,20 +435,29 @@
                                         <a class="view-btn" href="@Url.Action("ReportDetails","Manager", new { id = r.Id })">View</a>
                                         @if (r.Status == CEMS.Models.ReportStatus.Submitted)
                                         {
-                                            <form method="post" asp-action="ApproveReport" asp-controller="Manager" class="approve-form" style="display:inline-block; margin-left:6px;">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@r.Id" />
-                                                <button class="approve-btn" type="submit">
-                                                    Approve
-                                                </button>
-                                            </form>
-                                            <form method="post" asp-action="RejectReport" asp-controller="Manager" class="reject-form" style="display:inline-block; margin-left:6px;">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@r.Id" />
-                                                <button class="reject-btn" type="submit">
-                                                    Reject
-                                                </button>
-                                            </form>
+                                            @if (r.BudgetCheck == CEMS.Models.BudgetCheckStatus.OverBudget)
+                                            {
+                                                <form method="post" asp-action="ApproveReport" asp-controller="Manager" class="approve-form" style="display:inline-block; margin-left:6px;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@r.Id" />
+                                                    <button class="approve-btn" type="submit">
+                                                        Forward to CEO
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form method="post" asp-action="ApproveReport" asp-controller="Manager" class="approve-form" style="display:inline-block; margin-left:6px;">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@r.Id" />
+                                                    <button class="approve-btn" type="submit">
+                                                        Approve
+                                                    </button>
+                                                </form>
+                                            }
+                                            <button class="reject-btn" type="button" style="margin-left:6px;" onclick="openRejectModal(@r.Id)">
+                                                Reject
+                                            </button>
                                         }
                                     </td>
                                 </tr>
@@ -467,6 +476,39 @@
         </div>
     </div>
 </div>
+
+<!-- Rejection Notes Modal -->
+<div class="confirm-overlay" id="rejectOverlay">
+    <div class="confirm-box" style="text-align:left;">
+        <h5 style="margin-bottom:16px;"><i class="bi bi-x-circle" style="color:#ef4444;margin-right:8px;"></i>Reject Report</h5>
+        <form method="post" asp-action="RejectReport" asp-controller="Manager" id="rejectForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" id="rejectReportId" value="" />
+            <div style="margin-bottom:14px;">
+                <label style="font-size:.88rem;font-weight:600;display:block;margin-bottom:6px;">Rejection Reason <span style="color:#ef4444;">*</span></label>
+                <textarea name="remarks" id="rejectRemarks" rows="3" class="form-control" placeholder="Please explain why this report is being rejected..." required style="width:100%;border-radius:8px;border:1px solid #e9eef6;padding:10px;font-size:.88rem;"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" class="confirm-cancel-btn" onclick="closeRejectModal()">Cancel</button>
+                <button type="submit" class="confirm-ok-btn" style="background:#ef4444;">Reject</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openRejectModal(reportId) {
+    document.getElementById('rejectReportId').value = reportId;
+    document.getElementById('rejectRemarks').value = '';
+    document.getElementById('rejectOverlay').classList.add('show');
+}
+function closeRejectModal() {
+    document.getElementById('rejectOverlay').classList.remove('show');
+}
+document.getElementById('rejectOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeRejectModal();
+});
+</script>
 
 <!-- Toast Notification -->
 <div class="action-toast" id="actionToast">
@@ -530,7 +572,12 @@
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             pendingForm = form;
-            showConfirm('Approve Report', 'Are you sure you want to approve this expense report?', '✓', '#10b981');
+            var btnText = form.querySelector('button').textContent.trim();
+            if (btnText.indexOf('Forward') >= 0) {
+                showConfirm('Forward to CEO', 'This over-budget report will be forwarded to the CEO for final approval. Continue?', '↗', '#1a6bb5');
+            } else {
+                showConfirm('Approve Report', 'Are you sure you want to approve this expense report?', '✓', '#10b981');
+            }
         });
     });
 

@@ -298,8 +298,8 @@ namespace CEMS.Controllers
 
             await _db.SaveChangesAsync();
 
-            // Notify driver and managers about CEO rejection
-            await _notificationService.NotifyCEORejected(id, report.UserId);
+            // Notify driver and managers about CEO rejection (include reason)
+            await _notificationService.NotifyCEORejected(id, report.UserId, remarks);
 
             TempData["Success"] = "Report rejected by CEO.";
             return RedirectToAction("Approvals");
@@ -346,7 +346,7 @@ namespace CEMS.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RejectForReimbursement(int id)
+        public async Task<IActionResult> RejectForReimbursement(int id, string? remarks)
         {
             var report = await _db.ExpenseReports.FindAsync(id);
             if (report == null) return NotFound();
@@ -355,6 +355,7 @@ namespace CEMS.Controllers
             report.ForwardedToCEO = false;
             report.Status = ReportStatus.Rejected;
 
+            var rejectionRemarks = string.IsNullOrWhiteSpace(remarks) ? "Rejected by CEO" : remarks.Trim();
             var approval = new Approval
             {
                 ReportId = id,
@@ -362,7 +363,7 @@ namespace CEMS.Controllers
                 Status = ApprovalStatus.Rejected,
                 DecisionDate = DateTime.UtcNow,
                 Stage = "CEO",
-                Remarks = "Quick-rejected"
+                Remarks = rejectionRemarks
             };
             _db.Approvals.Add(approval);
 
@@ -373,13 +374,13 @@ namespace CEMS.Controllers
                 Role = "CEO",
                 PerformedByUserId = _userManager.GetUserId(User),
                 RelatedRecordId = id,
-                Details = $"CEO quick-rejected report #{id}"
+                Details = $"CEO rejected report #{id} — {rejectionRemarks}"
             });
 
             await _db.SaveChangesAsync();
 
-            // Notify driver and managers about CEO rejection
-            await _notificationService.NotifyCEORejected(id, report.UserId);
+            // Notify driver and managers about CEO rejection (include reason)
+            await _notificationService.NotifyCEORejected(id, report.UserId, rejectionRemarks);
 
             TempData["Success"] = "Report rejected by CEO.";
             return RedirectToAction("Approvals");

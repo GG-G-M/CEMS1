@@ -255,9 +255,9 @@ namespace CEMS.Controllers
             // Budget per category with spent amounts for the date range (only approved reports)
             var allBudgets = await _db.Budgets.ToListAsync();
 
-            // Get IDs of approved reports in the date range
+            // Get IDs of truly approved reports in the date range (exclude PendingCEOApproval — not yet approved by CEO)
             var approvedReportIds = await _db.ExpenseReports
-                .Where(r => (r.Status == ReportStatus.Approved || r.Status == ReportStatus.PendingCEOApproval) &&
+                .Where(r => r.Status == ReportStatus.Approved &&
                        r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
                 .Select(r => r.Id)
                 .ToListAsync();
@@ -439,58 +439,73 @@ namespace CEMS.Controllers
                 .FirstOrDefaultAsync(r => r.Id == id);
             if (report == null) return NotFound();
 
-            report.Status = ReportStatus.Approved;
-            // record manager approval
-            var managerApproval = new Models.Approval
-            {
-                ReportId = report.Id,
-                ApprovedByUserId = _userManager.GetUserId(User),
-                Status = Models.ApprovalStatus.Approved,
-                DecisionDate = DateTime.UtcNow,
-                Stage = "Manager",
-                Remarks = "Approved by manager"
-            };
-            _db.Approvals.Add(managerApproval);
-            // If within budget, forward to finance by leaving ForwardedToCEO = false
-            // If over budget, flag and forward to CEO
+            // If over budget, do NOT set Approved — forward to CEO instead
             if (report.BudgetCheck == BudgetCheckStatus.OverBudget)
             {
                 report.ForwardedToCEO = true;
                 report.Status = ReportStatus.PendingCEOApproval;
-            }
 
-            _db.AuditLogs.Add(new AuditLog
-            {
-                Action = "ApproveReport",
-                Module = "Expense Reports",
-                Role = "Manager",
-                PerformedByUserId = _userManager.GetUserId(User),
-                RelatedRecordId = report.Id,
-                Details = $"Approved expense report #{report.Id} (₱{report.TotalAmount:N2}){(report.BudgetCheck == BudgetCheckStatus.OverBudget ? " — forwarded to CEO" : " — sent to Finance")}"
-            });
+                var managerApproval = new Models.Approval
+                {
+                    ReportId = report.Id,
+                    ApprovedByUserId = _userManager.GetUserId(User),
+                    Status = Models.ApprovalStatus.Approved,
+                    DecisionDate = DateTime.UtcNow,
+                    Stage = "Manager",
+                    Remarks = "Forwarded to CEO for over-budget approval"
+                };
+                _db.Approvals.Add(managerApproval);
 
-            await _db.SaveChangesAsync();
+                _db.AuditLogs.Add(new AuditLog
+                {
+                    Action = "ForwardToCEO",
+                    Module = "Expense Reports",
+                    Role = "Manager",
+                    PerformedByUserId = _userManager.GetUserId(User),
+                    RelatedRecordId = report.Id,
+                    Details = $"Forwarded over-budget report #{report.Id} (₱{report.TotalAmount:N2}) to CEO for final approval"
+                });
 
-            // If within budget, create a task/flag for finance to reimburse (simple approach: set Reimbursed=false and leave ForwardedToCEO false)
-            if (report.BudgetCheck == BudgetCheckStatus.WithinBudget)
-            {
-                report.Reimbursed = false;
-                report.ForwardedToCEO = false;
                 await _db.SaveChangesAsync();
-                TempData["Success"] = "Report approved and sent to Finance for reimbursement.";
+
+                await _notificationService.NotifyReportApprovedByManager(report.Id, report.UserId, true);
+                await _notificationService.NotifyReportForwardedToCEO(report.Id, report.TotalAmount);
+
+                TempData["Success"] = "Over-budget report forwarded to CEO for final approval.";
             }
             else
             {
-                TempData["Success"] = "Over-budget report approved and forwarded to CEO for final approval.";
-            }
+                // Within budget — approve and send to Finance
+                report.Status = ReportStatus.Approved;
+                report.Reimbursed = false;
+                report.ForwardedToCEO = false;
 
-            // Notify driver and relevant roles
-            await _notificationService.NotifyReportApprovedByManager(report.Id, report.UserId, report.BudgetCheck == BudgetCheckStatus.OverBudget);
+                var managerApproval = new Models.Approval
+                {
+                    ReportId = report.Id,
+                    ApprovedByUserId = _userManager.GetUserId(User),
+                    Status = Models.ApprovalStatus.Approved,
+                    DecisionDate = DateTime.UtcNow,
+                    Stage = "Manager",
+                    Remarks = "Approved by manager"
+                };
+                _db.Approvals.Add(managerApproval);
 
-            // If forwarded to CEO, also send a specific notification
-            if (report.BudgetCheck == BudgetCheckStatus.OverBudget)
-            {
-                await _notificationService.NotifyReportForwardedToCEO(report.Id, report.TotalAmount);
+                _db.AuditLogs.Add(new AuditLog
+                {
+                    Action = "ApproveReport",
+                    Module = "Expense Reports",
+                    Role = "Manager",
+                    PerformedByUserId = _userManager.GetUserId(User),
+                    RelatedRecordId = report.Id,
+                    Details = $"Approved expense report #{report.Id} (₱{report.TotalAmount:N2}) — sent to Finance"
+                });
+
+                await _db.SaveChangesAsync();
+
+                await _notificationService.NotifyReportApprovedByManager(report.Id, report.UserId, false);
+
+                TempData["Success"] = "Report approved and sent to Finance for reimbursement.";
             }
 
             return RedirectToAction("Reports");
@@ -498,13 +513,14 @@ namespace CEMS.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RejectReport(int id, string? returnUrl)
+        public async Task<IActionResult> RejectReport(int id, string? remarks, string? returnUrl)
         {
             var report = await _db.ExpenseReports.FindAsync(id);
             if (report == null) return NotFound();
 
             report.Status = ReportStatus.Rejected;
-            // record manager rejection
+            // record manager rejection with reason
+            var rejectionRemarks = string.IsNullOrWhiteSpace(remarks) ? "Rejected by manager" : remarks.Trim();
             var rejection = new Models.Approval
             {
                 ReportId = report.Id,
@@ -512,7 +528,7 @@ namespace CEMS.Controllers
                 Status = Models.ApprovalStatus.Rejected,
                 DecisionDate = DateTime.UtcNow,
                 Stage = "Manager",
-                Remarks = "Rejected by manager"
+                Remarks = rejectionRemarks
             };
             _db.Approvals.Add(rejection);
 
@@ -523,13 +539,13 @@ namespace CEMS.Controllers
                 Role = "Manager",
                 PerformedByUserId = _userManager.GetUserId(User),
                 RelatedRecordId = report.Id,
-                Details = $"Rejected expense report #{report.Id}"
+                Details = $"Rejected expense report #{report.Id} — {rejectionRemarks}"
             });
 
             await _db.SaveChangesAsync();
 
-            // Notify the driver about rejection
-            await _notificationService.NotifyReportRejectedByManager(report.Id, report.UserId);
+            // Notify the driver about rejection (include reason)
+            await _notificationService.NotifyReportRejectedByManager(report.Id, report.UserId, rejectionRemarks);
 
             TempData["Success"] = "Report rejected.";
 

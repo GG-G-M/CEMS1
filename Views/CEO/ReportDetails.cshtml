@@ -146,8 +146,8 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
                 <div class="mb-3">
-                    <label class="form-label"><strong>Rejection Remarks</strong></label>
-                    <textarea name="remarks" class="form-control" rows="2" placeholder="Reason for rejection..."></textarea>
+                    <label class="form-label"><strong>Rejection Reason <span class="text-danger">*</span></strong></label>
+                    <textarea name="remarks" class="form-control" rows="2" placeholder="Please explain why this report is being rejected..." required></textarea>
                 </div>
                 <button type="submit" class="btn btn-danger">
                     <i class="bi bi-x-circle"></i> Reject Report

@@ -410,19 +410,47 @@
                     </div>
                 }
                 <div class="d-flex gap-2">
-                    <form method="post" asp-action="ApproveReport" asp-controller="Manager" class="approve-form">
-                        @Html.AntiForgeryToken()
-                        <input type="hidden" name="id" value="@Model.Id" />
-                        <button class="action-btn action-btn--approve" type="submit">
-                            <i class="bi bi-check-lg"></i> Approve
-                        </button>
-                    </form>
+                    @if (Model.BudgetCheck == CEMS.Models.BudgetCheckStatus.OverBudget)
+                    {
+                        <form method="post" asp-action="ApproveReport" asp-controller="Manager" class="approve-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <button class="action-btn action-btn--approve" type="submit">
+                                <i class="bi bi-arrow-up-right-circle"></i> Forward to CEO
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <form method="post" asp-action="ApproveReport" asp-controller="Manager" class="approve-form">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <button class="action-btn action-btn--approve" type="submit">
+                                <i class="bi bi-check-lg"></i> Approve
+                            </button>
+                        </form>
+                    }
+                    <button class="action-btn action-btn--reject" type="button" onclick="document.getElementById('rejectSection').style.display='block'; this.style.display='none';">
+                        <i class="bi bi-x-lg"></i> Reject
+                    </button>
+                </div>
+                <!-- Rejection notes section (initially hidden) -->
+                <div id="rejectSection" style="display:none; margin-top:16px;">
                     <form method="post" asp-action="RejectReport" asp-controller="Manager" class="reject-form">
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="id" value="@Model.Id" />
-                        <button class="action-btn action-btn--reject" type="submit">
-                            <i class="bi bi-x-lg"></i> Reject
-                        </button>
+                        <div style="margin-bottom:12px;">
+                            <label style="font-size:.88rem;font-weight:600;color:var(--d-text);display:block;margin-bottom:6px;">Rejection Reason <span style="color:#ef4444;">*</span></label>
+                            <textarea name="remarks" class="form-control" rows="3" placeholder="Please explain why this report is being rejected..." required style="border-radius:8px;border-color:var(--d-border);font-size:.88rem;"></textarea>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="action-btn action-btn--reject" type="submit">
+                                <i class="bi bi-x-lg"></i> Confirm Rejection
+                            </button>
+                            <button class="action-btn" type="button" style="background:#f1f5f9;color:var(--d-text);" onclick="document.getElementById('rejectSection').style.display='none'; document.querySelector('.action-btn--reject[type=button]').style.display='';">
+                                Cancel
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -636,12 +664,23 @@
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             pendingForm = form;
-            showConfirm('Approve Report', 'Are you sure you want to approve this expense report?', '✓', '#10b981');
+            var isOverBudget = @(Model.BudgetCheck == CEMS.Models.BudgetCheckStatus.OverBudget ? "true" : "false");
+            if (isOverBudget) {
+                showConfirm('Forward to CEO', 'This over-budget report will be forwarded to the CEO for final approval. Continue?', '↗', '#1a6bb5');
+            } else {
+                showConfirm('Approve Report', 'Are you sure you want to approve this expense report?', '✓', '#10b981');
+            }
         });
     });
 
     document.querySelectorAll('.reject-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
+            var remarks = form.querySelector('textarea[name="remarks"]');
+            if (remarks && !remarks.value.trim()) {
+                e.preventDefault();
+                remarks.focus();
+                return;
+            }
             e.preventDefault();
             pendingForm = form;
             showConfirm('Reject Report', 'Are you sure you want to reject this expense report?', '✕', '#ef4444');

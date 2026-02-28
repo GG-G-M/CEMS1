@@ -101,15 +101,16 @@ namespace CEMS.Services
             await _db.SaveChangesAsync();
         }
 
-        /// <summary>Manager rejected a report → notify Driver.</summary>
-        public async Task NotifyReportRejectedByManager(int reportId, string? driverUserId)
+        /// <summary>Manager rejected a report → notify Driver with reason.</summary>
+        public async Task NotifyReportRejectedByManager(int reportId, string? driverUserId, string? reason = null)
         {
             if (string.IsNullOrEmpty(driverUserId)) return;
 
+            var reasonText = string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}";
             _db.Notifications.Add(new Notification
             {
                 Title = "Report Rejected by Manager",
-                Message = $"Your report #{reportId} was rejected by the manager. Please review and resubmit.",
+                Message = $"Your report #{reportId} was rejected by the manager.{reasonText} Please review and resubmit.",
                 UserId = driverUserId,
                 Role = "Driver",
                 RelatedReportId = reportId,
@@ -178,15 +179,16 @@ namespace CEMS.Services
             await _db.SaveChangesAsync();
         }
 
-        /// <summary>CEO rejected an over-budget report → notify Driver and Manager.</summary>
-        public async Task NotifyCEORejected(int reportId, string? driverUserId)
+        /// <summary>CEO rejected an over-budget report → notify Driver and Manager (with reason).</summary>
+        public async Task NotifyCEORejected(int reportId, string? driverUserId, string? reason = null)
         {
+            var reasonText = string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}";
             if (!string.IsNullOrEmpty(driverUserId))
             {
                 _db.Notifications.Add(new Notification
                 {
                     Title = "Report Rejected by CEO",
-                    Message = $"Your over-budget report #{reportId} was rejected by the CEO.",
+                    Message = $"Your over-budget report #{reportId} was rejected by the CEO.{reasonText}",
                     UserId = driverUserId,
                     Role = "Driver",
                     RelatedReportId = reportId,
@@ -200,7 +202,7 @@ namespace CEMS.Services
                 _db.Notifications.Add(new Notification
                 {
                     Title = "CEO Rejected Over-Budget Report",
-                    Message = $"Report #{reportId} was rejected by the CEO.",
+                    Message = $"Report #{reportId} was rejected by the CEO.{reasonText}",
                     UserId = m.Id,
                     Role = "Manager",
                     RelatedReportId = reportId,

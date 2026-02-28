@@ -1224,6 +1224,16 @@
 
 <script>
     let currentEditReportId = null;
+    const editCategories = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.Categories as List<string> ?? new List<string>()));
+
+    function buildCategorySelect(name, selectedValue) {
+        let opts = '<option value="">-- Select --</option>';
+        for (const cat of editCategories) {
+            const sel = cat === selectedValue ? ' selected' : '';
+            opts += `<option value="${cat}"${sel}>${cat}</option>`;
+        }
+        return `<select class="form-control" name="${name}" required>${opts}</select>`;
+    }
 
     async function loadReportToModal(id){
         currentEditReportId = id;
@@ -1262,12 +1272,12 @@
             for(let i=0;i<data.items.length;i++){
                 const it = data.items[i];
                 html += `<tr>
-                    <td><input class="form-control" name="items[${i}].Date" type="date" value="${it.Date}" /></td>
-                    <td><input class="form-control" name="items[${i}].Category" value="${it.Category}"/></td>
-                    <td><input class="form-control" name="items[${i}].Amount" type="number" step="0.01" value="${it.Amount}"/></td>
-                    <td><input class="form-control" name="items[${i}].Description" value="${it.Description || ''}"/></td>
+                    <td><input class="form-control" name="items[${i}].Date" type="date" value="${it.date}" /></td>
+                    <td>${buildCategorySelect('items['+i+'].Category', it.category)}</td>
+                    <td><input class="form-control" name="items[${i}].Amount" type="number" step="0.01" value="${it.amount}"/></td>
+                    <td><input class="form-control" name="items[${i}].Description" value="${it.description || ''}"/></td>
                     <td><input class="form-control" name="items[${i}].Receipt" type="file" /></td>
-                    <input type="hidden" name="items[${i}].Id" value="${it.Id}" />
+                    <input type="hidden" name="items[${i}].Id" value="${it.id}" />
                 </tr>`;
             }
             html += `</tbody></table></form>`;

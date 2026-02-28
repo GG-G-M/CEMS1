@@ -95,11 +95,7 @@
                                                 <input type="hidden" name="id" value="@r.Id" />
                                                 <button type="submit" class="approve-btn">Approve</button>
                                             </form>
-                                            <form method="post" asp-action="RejectForReimbursement" asp-controller="CEO" style="display:inline;">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@r.Id" />
-                                                <button type="submit" class="reject-btn">Reject</button>
-                                            </form>
+                                            <button type="button" class="reject-btn" onclick="openCeoRejectModal(@r.Id)">Reject</button>
                                         </div>
                                     </td>
                                 </tr>
@@ -119,3 +115,49 @@
         }
     </div>
 </div>
+
+<!-- CEO Rejection Notes Modal -->
+<style>
+    .ceo-reject-overlay {
+        position: fixed; inset: 0; background: rgba(15,23,36,.5); z-index: 9998;
+        display: flex; align-items: center; justify-content: center;
+        opacity: 0; pointer-events: none; transition: opacity .22s ease;
+    }
+    .ceo-reject-overlay.show { opacity: 1; pointer-events: auto; }
+    .ceo-reject-box {
+        background: #fff; border-radius: 12px; padding: 32px; max-width: 440px; width: 90%;
+        box-shadow: 0 8px 40px rgba(0,0,0,.18); text-align: left;
+        transform: translateY(-10px); transition: transform .22s ease;
+    }
+    .ceo-reject-overlay.show .ceo-reject-box { transform: translateY(0); }
+</style>
+<div class="ceo-reject-overlay" id="ceoRejectOverlay">
+    <div class="ceo-reject-box">
+        <h5 style="font-weight:700;margin-bottom:16px;"><i class="bi bi-x-circle" style="color:#ef4444;margin-right:8px;"></i>Reject Report</h5>
+        <form method="post" asp-action="RejectForReimbursement" asp-controller="CEO" id="ceoRejectForm">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" id="ceoRejectReportId" value="" />
+            <div style="margin-bottom:14px;">
+                <label style="font-size:.88rem;font-weight:600;display:block;margin-bottom:6px;">Rejection Reason <span style="color:#ef4444;">*</span></label>
+                <textarea name="remarks" id="ceoRejectRemarks" rows="3" class="form-control" placeholder="Please explain why this report is being rejected..." required style="width:100%;border-radius:8px;border:1px solid #e9eef6;padding:10px;font-size:.88rem;"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;justify-content:flex-end;">
+                <button type="button" style="padding:8px 20px;border-radius:7px;background:#f1f5f9;color:#0f1724;font-weight:600;font-size:.88rem;border:none;cursor:pointer;" onclick="closeCeoRejectModal()">Cancel</button>
+                <button type="submit" style="padding:8px 20px;border-radius:7px;background:#ef4444;color:#fff;font-weight:600;font-size:.88rem;border:none;cursor:pointer;">Reject</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openCeoRejectModal(reportId) {
+    document.getElementById('ceoRejectReportId').value = reportId;
+    document.getElementById('ceoRejectRemarks').value = '';
+    document.getElementById('ceoRejectOverlay').classList.add('show');
+}
+function closeCeoRejectModal() {
+    document.getElementById('ceoRejectOverlay').classList.remove('show');
+}
+document.getElementById('ceoRejectOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeCeoRejectModal();
+});
+</script>
