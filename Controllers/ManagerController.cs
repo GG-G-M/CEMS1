@@ -240,7 +240,7 @@ namespace CEMS.Controllers
                 .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
 
             var overBudgetCount = await _db.ExpenseReports
-                .Where(r => r.BudgetCheck == BudgetCheckStatus.OverBudget && r.Status == ReportStatus.Approved && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .Where(r => r.BudgetCheck == BudgetCheckStatus.OverBudget && (r.Status == ReportStatus.Submitted || r.Status == ReportStatus.PendingCEOApproval) && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
                 .CountAsync();
 
             // Approved by this manager in the date range
@@ -338,10 +338,10 @@ namespace CEMS.Controllers
             ViewBag.FilterStart = start?.ToString("yyyy-MM-dd");
             ViewBag.FilterEnd = end?.ToString("yyyy-MM-dd");
 
-            // Only get approved over-budget reports (not rejected ones)
+            // Get over-budget reports that need action (Submitted) or are already forwarded (PendingCEOApproval)
             var reports = await _db.ExpenseReports
                 .Where(r => r.BudgetCheck == BudgetCheckStatus.OverBudget &&
-                            r.Status == ReportStatus.Approved &&
+                            (r.Status == ReportStatus.Submitted || r.Status == ReportStatus.PendingCEOApproval) &&
                             r.SubmissionDate >= start && 
                             r.SubmissionDate <= end.Value.AddDays(1))
                 .OrderByDescending(r => r.SubmissionDate)
@@ -365,12 +365,12 @@ namespace CEMS.Controllers
 
                     if (budget != null)
                     {
-                        // Calculate spent amount ONLY from approved over-budget reports in the date range
+                        // Calculate spent amount from over-budget reports in the date range
                         var currentSpent = await _db.ExpenseItems
                             .Where(ii => ii.Category == cat && 
                                          ii.Date >= start && 
                                          ii.Date <= end.Value.AddDays(1) &&
-                                         ii.Report.Status == ReportStatus.Approved &&
+                                         (ii.Report.Status == ReportStatus.Submitted || ii.Report.Status == ReportStatus.PendingCEOApproval || ii.Report.Status == ReportStatus.Approved) &&
                                          ii.Report.BudgetCheck == BudgetCheckStatus.OverBudget)
                             .SumAsync(ii => (decimal?)ii.Amount) ?? 0m;
 

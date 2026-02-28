@@ -140,7 +140,7 @@
     /* Table Card */
     .table-card {
         background: white;
-        border-radius: 10px;
+        border-radius: var(--d-radius-lg);
         margin: 0 16px 16px 16px;
         overflow: hidden;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
@@ -267,12 +267,13 @@
 <div class="page-wrapper">
     <div class="container-fluid px-2">
         <!-- Page Header -->
-        <div class="page-header">
-            @* <h1 class="page-title">
-                <i class="bi bi-journal-text"></i>
-                Audit Logs
-            </h1> *@
-            <p class="page-subtitle">@totalCount total record(s)</p>
+        <div class="page-header" style="display: flex; align-items: center; gap: 16px;">
+            <div style="flex: 1;">
+                <p class="page-subtitle" style="margin: 0;">@totalCount total record(s)</p>
+            </div>
+            <button type="button" id="exportPdfBtn" style="background: #10b981; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; height: fit-content; white-space: nowrap;">
+                <i class="bi bi-file-pdf"></i> Export PDF
+            </button>
         </div>
 
         <!-- Filter Section - matching dashboard design -->
@@ -327,17 +328,10 @@
 
             <div class="filter-group">
                 <label>To</label>
-                <input type="date" id="filterEnd" value="@(filterEnd?.ToString("yyyy-MM-dd"))">
-            </div>
-
-            <!-- Export Button -->
-            <div style="display: flex; align-items: flex-end; gap: 8px; margin-left: auto;">
-                <button type="button" id="exportPdfBtn" class="filter-btn" title="Export as PDF" style="padding: 8px 14px; background: #0288d1; color: white; border: none;">
-                    <i class="bi bi-file-pdf"></i> Export PDF
-                </button>
-            </div>
-        </div>
-        <div class="table-card">
+                    <input type="date" id="filterEnd" value="@(filterEnd?.ToString("yyyy-MM-dd"))">
+                    </div>
+                </div>
+                <div class="table-card">
             @if (logs.Count == 0)
             {
                 <div class="empty-state">

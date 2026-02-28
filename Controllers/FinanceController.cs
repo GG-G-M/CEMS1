@@ -6,6 +6,10 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using CEMS.Models;
 using CEMS.Services;
+using iText.Kernel.Pdf;
+using iText.Layout;
+using iText.Layout.Element;
+using iText.Layout.Properties;
 
 namespace CEMS.Controllers
 {
@@ -294,7 +298,7 @@ namespace CEMS.Controllers
         }
 
         // Payment history: fetched from ReimbursementPayments table (no webhook needed)
-        public async Task<IActionResult> Payments(string? search, string? status, DateTime? start, DateTime? end, int page = 1, int pageSize = 15)
+        public async Task<IActionResult> Payments(string? search, string? status, DateTime? start, DateTime? end, int page = 1, int pageSize = 10)
         {
             var query = _db.ReimbursementPayments
                 .Include(p => p.Report)
@@ -347,13 +351,128 @@ namespace CEMS.Controllers
             ViewBag.FilterStart = start?.ToString("yyyy-MM-dd") ?? "";
             ViewBag.FilterEnd = end?.ToString("yyyy-MM-dd") ?? "";
 
-            return View("Payments/Index");
-        }
+                    return View("Payments/Index");
+                }
 
-        // Refresh a single payment's status from PayMongo API (no webhook needed)
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RefreshPaymentStatus(int id)
+                // Export payment history as PDF with current filters applied
+                public async Task<IActionResult> ExportPayments(string? search, string? status, DateTime? start, DateTime? end)
+                {
+                    var query = _db.ReimbursementPayments
+                        .Include(p => p.Report)
+                        .AsQueryable();
+
+                    // Status filter
+                    if (!string.IsNullOrWhiteSpace(status))
+                        query = query.Where(p => p.Status == status);
+
+                    // Date range filter (on CreatedAt)
+                    if (start.HasValue)
+                        query = query.Where(p => p.CreatedAt >= start.Value.Date);
+                    if (end.HasValue)
+                        query = query.Where(p => p.CreatedAt < end.Value.Date.AddDays(1));
+
+                    // Search filter (report ID or PayMongo link ID)
+                    if (!string.IsNullOrWhiteSpace(search))
+                    {
+                        if (int.TryParse(search.Trim(), out var searchId))
+                            query = query.Where(p => p.ReportId == searchId);
+                        else
+                            query = query.Where(p => p.PayMongoLinkId.Contains(search.Trim()));
+                    }
+
+                    var payments = await query
+                        .OrderByDescending(p => p.CreatedAt)
+                        .ToListAsync();
+
+                    // Resolve driver (Report.UserId) and processor user names
+                    var driverIds = payments.Where(p => p.Report?.UserId != null).Select(p => p.Report!.UserId!).Distinct().ToList();
+                    var processorIds = payments.Where(p => p.ProcessedByUserId != null).Select(p => p.ProcessedByUserId!).Distinct().ToList();
+                    var allUserIds = driverIds.Union(processorIds).Distinct().ToList();
+                    var userMap = await _userManager.Users
+                        .Where(u => allUserIds.Contains(u.Id))
+                        .ToDictionaryAsync(u => u.Id, u => u.UserName ?? u.Email ?? "Unknown");
+
+                    // Generate PDF using iText
+                    using (var memoryStream = new System.IO.MemoryStream())
+                    {
+                        var writer = new PdfWriter(memoryStream);
+                        var pdf = new PdfDocument(writer);
+                        var document = new Document(pdf);
+
+                        // Title
+                        var title = new Paragraph("Payment History Report")
+                            .SetFontSize(18)
+                            .SetBold()
+                            .SetMarginBottom(10);
+                        document.Add(title);
+
+                        // Report info
+                        var reportInfo = new Paragraph()
+                            .Add($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n")
+                            .Add($"Total Records: {payments.Count}\n")
+                            .SetFontSize(10)
+                            .SetMarginBottom(15);
+
+                        if (!string.IsNullOrEmpty(search))
+                            reportInfo.Add($"Search: {search}\n");
+                        if (!string.IsNullOrEmpty(status))
+                            reportInfo.Add($"Status Filter: {status}\n");
+                        if (start.HasValue)
+                            reportInfo.Add($"Date From: {start:yyyy-MM-dd}\n");
+                        if (end.HasValue)
+                            reportInfo.Add($"Date To: {end:yyyy-MM-dd}\n");
+
+                        document.Add(reportInfo);
+
+                        // Table with 10 columns
+                        var table = new Table(UnitValue.CreatePercentArray(new[] { 10f, 15f, 12f, 10f, 12f, 15f, 10f, 10f, 10f, 16f }));
+                        table.SetWidth(UnitValue.CreatePercentValue(100));
+
+                        // Table headers
+                        var headers = new[] { "Report ID", "Driver / Payee", "Amount", "Currency", "Payment Method", "PayMongo ID", "Ref #", "Status", "Paid At", "Processed By" };
+                        foreach (var header in headers)
+                        {
+                            var cell = new Cell()
+                                .Add(new Paragraph(header).SetBold())
+                                .SetBackgroundColor(new iText.Kernel.Colors.DeviceRgb(16, 185, 129))
+                                .SetFontColor(new iText.Kernel.Colors.DeviceRgb(255, 255, 255))
+                                .SetPadding(6);
+                            table.AddHeaderCell(cell);
+                        }
+
+                        // Table rows
+                        foreach (var p in payments)
+                        {
+                            var driverName = (p.Report?.UserId != null && userMap.ContainsKey(p.Report.UserId))
+                                ? userMap[p.Report.UserId] : "—";
+                            var processedByName = (p.ProcessedByUserId != null && userMap.ContainsKey(p.ProcessedByUserId))
+                                ? userMap[p.ProcessedByUserId] : "—";
+                            var paidAtStr = p.PaidAt.HasValue ? p.PaidAt.Value.ToLocalTime().ToString("MMM d, yyyy") : "—";
+
+                            table.AddCell(new Cell().Add(new Paragraph($"#{p.ReportId}").SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph(driverName).SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph($"₱{p.Amount:N2}").SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph("PHP").SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph("GCash").SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph(p.PayMongoLinkId.Substring(0, Math.Min(15, p.PayMongoLinkId.Length)) + (p.PayMongoLinkId.Length > 15 ? "..." : "")).SetFontSize(7)));
+                            table.AddCell(new Cell().Add(new Paragraph($"RPT-{p.ReportId}-{p.Id}").SetFontSize(7)));
+                            table.AddCell(new Cell().Add(new Paragraph(p.Status).SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph(paidAtStr).SetFontSize(8)));
+                            table.AddCell(new Cell().Add(new Paragraph(processedByName).SetFontSize(8)));
+                        }
+
+                        document.Add(table);
+                        document.Close();
+
+                        var bytes = memoryStream.ToArray();
+                        return File(bytes, "application/pdf", $"payment-history-{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+                    }
+                }
+
+                // Refresh a single payment's status from PayMongo API (no webhook needed)
+                [HttpPost]
+                [ValidateAntiForgeryToken]
+                public async Task<IActionResult> RefreshPaymentStatus(int id)
         {
             var payment = await _db.ReimbursementPayments
                 .Include(p => p.Report)

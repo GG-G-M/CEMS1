@@ -37,10 +37,10 @@
     <div class="container-fluid px-4">
             <div class="page-header">
             <div>
-                <h1 class="page-title">
+                @* <h1 class="page-title">
                     <i class="bi bi-exclamation-triangle"></i>
                     Over-Budget Approvals
-                </h1>
+                </h1> *@
                 <p class="page-subtitle">Expense reports that exceed budget limits require your approval.</p>
             </div>
             @if (reports.Any())
@@ -55,7 +55,7 @@
         {
             <div class="table-card">
                 <div class="table-responsive">
-                    <table class="dash-table">
+                    <table class="dash-table" id="ceoApprovalsTable">
                         <thead>
                             <tr>
                                 <th>Report #</th>
@@ -104,6 +104,7 @@
                     </table>
                 </div>
             </div>
+            <div class="controls-bottom" id="ceoApprovalsPagination"></div>
         }
         else
         {
@@ -115,6 +116,60 @@
         }
     </div>
 </div>
+
+<!-- CEO Pagination -->
+<script>
+(function(){
+    var PAGE_SIZE = 10;
+    var table = document.getElementById('ceoApprovalsTable');
+    if(!table) return;
+    var rows = Array.from(table.querySelectorAll('tbody tr'));
+    var totalPages = Math.ceil(rows.length / PAGE_SIZE);
+    if(totalPages <= 1) return;
+    var currentPage = 1;
+
+    function renderPage(page){
+        currentPage = page;
+        rows.forEach(function(r,i){
+            r.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? '' : 'none';
+        });
+        renderPaginationControls();
+    }
+
+    function renderPaginationControls(){
+        var container = document.getElementById('ceoApprovalsPagination');
+        if(!container) return;
+        var startP = Math.max(1, currentPage - 2);
+        var endP = Math.min(totalPages, currentPage + 2);
+        var html = '<nav aria-label="Report pages" class="controls-pagination"><ul class="pagination mb-0">';
+        html += '<li class="page-item '+(currentPage===1?'disabled':'')+'"><a class="page-link" href="#" data-page="'+(currentPage-1)+'"><i class="bi bi-chevron-left"></i> Prev</a></li>';
+        if(startP > 1){
+            html += '<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>';
+            if(startP > 2) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+        }
+        for(var p=startP;p<=endP;p++){
+            html += '<li class="page-item '+(p===currentPage?'active':'')+'"><a class="page-link" href="#" data-page="'+p+'">'+p+'</a></li>';
+        }
+        if(endP < totalPages){
+            if(endP < totalPages-1) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            html += '<li class="page-item"><a class="page-link" href="#" data-page="'+totalPages+'">'+totalPages+'</a></li>';
+        }
+        html += '<li class="page-item '+(currentPage===totalPages?'disabled':'')+'"><a class="page-link" href="#" data-page="'+(currentPage+1)+'">Next <i class="bi bi-chevron-right"></i></a></li>';
+        html += '</ul></nav>';
+        html += '<div class="pagination-info">Page <strong>'+currentPage+'</strong> of <strong>'+totalPages+'</strong> ('+rows.length+' records)</div>';
+        container.innerHTML = html;
+        container.querySelectorAll('a[data-page]').forEach(function(a){
+            a.addEventListener('click', function(e){
+                e.preventDefault();
+                var pg = parseInt(this.getAttribute('data-page'));
+                if(pg >= 1 && pg <= totalPages) renderPage(pg);
+            });
+        });
+    }
+
+    renderPage(1);
+})();
+</script>
 
 <!-- CEO Rejection Notes Modal -->
 <style>

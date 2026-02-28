@@ -1,57 +1,398 @@
 @model CEMS.Models.ExpenseReport
 @{
-    ViewData["Title"] = "CEO Report Details";
+    ViewData["Title"] = "Report Details";
     Layout = "~/Views/Shared/_CEOLayout.cshtml";
+    var budgets = ViewBag.Budgets as List<CEMS.Models.Budget> ?? new List<CEMS.Models.Budget>();
 }
 
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2><i class="bi bi-file-earmark-text"></i> Expense Report #@Model.Id</h2>
-        <a class="btn btn-outline-secondary" asp-controller="CEO" asp-action="Approvals">
-            <i class="bi bi-arrow-left"></i> Back to Approvals
-        </a>
-    </div>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 
-    <!-- Report Summary -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light"><strong>Report Summary</strong></div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-3"><strong>Driver:</strong> @ViewBag.ReportUserName</div>
-                <div class="col-md-3"><strong>Submitted:</strong> @Model.SubmissionDate.ToLocalTime().ToString("MMM d, yyyy")</div>
-                <div class="col-md-2">
-                    <strong>Status:</strong>
-                    @if (Model.Status == CEMS.Models.ReportStatus.PendingCEOApproval)
-                    {
-                        <span class="badge bg-warning text-dark">Pending CEO</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-secondary">@Model.Status</span>
-                    }
+<style>
+    :root {
+        --d-primary: #1a6bb5;
+        --d-accent: #2ec4b6;
+        --d-bg: #f7fbfc;
+        --d-card: #ffffff;
+        --d-border: #e9eef6;
+        --d-text: #0f1724;
+        --d-muted: #6b7280;
+    }
+
+    .page-wrapper { background: var(--d-bg); min-height: calc(100vh - 80px); padding: 28px 0 48px; }
+
+    .detail-title {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: var(--d-text);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .detail-title i { color: var(--d-primary); font-size: 1.55rem; }
+
+    .back-btn {
+        font-size: .875rem;
+        padding: 7px 16px;
+        border-radius: 7px;
+        background: #f1f5f9;
+        color: var(--d-text);
+        text-decoration: none;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: background .15s;
+    }
+    .back-btn:hover { background: #e2e8f0; color: var(--d-text); text-decoration: none; }
+
+    /* Summary header */
+    .summary-card {
+        background: var(--d-card);
+        border: 1px solid var(--d-border);
+        border-radius: 10px;
+        padding: 22px 24px;
+        margin-bottom: 20px;
+    }
+
+    .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 20px;
+    }
+
+    .meta-item label {
+        font-size: .72rem;
+        font-weight: 700;
+        color: var(--d-muted);
+        text-transform: uppercase;
+        letter-spacing: .6px;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .meta-value { font-size: .92rem; color: var(--d-text); font-weight: 500; }
+    .meta-amount { font-size: 1.35rem; font-weight: 700; color: var(--d-primary); }
+
+    /* Section cards */
+    .section-card {
+        background: var(--d-card);
+        border: 1px solid var(--d-border);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 20px;
+    }
+
+    .section-header {
+        background: #f8fafc;
+        padding: 13px 20px;
+        border-bottom: 1px solid var(--d-border);
+        font-size: .78rem;
+        font-weight: 700;
+        color: var(--d-muted);
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .section-header i { font-size: .9rem; }
+
+    /* Table */
+    .dash-table { width: 100%; margin-bottom: 0; }
+
+    .dash-table thead th {
+        background: #f8fafc;
+        color: var(--d-muted);
+        font-weight: 600;
+        font-size: .76rem;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        padding: 11px 16px;
+        border: none;
+    }
+
+    .dash-table tbody td {
+        padding: 13px 16px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        color: var(--d-text);
+        font-size: .88rem;
+    }
+
+    .dash-table tbody tr:last-child td { border-bottom: none; }
+    .dash-table tbody tr:hover { background: #fafbfc; }
+
+    /* Tags & badges */
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: .73rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+
+    .status-badge--pending  { background: rgba(245,158,11,.1);  color: #d97706; }
+    .status-badge--approved { background: rgba(16,185,129,.1);  color: #10b981; }
+    .status-badge--rejected { background: rgba(239,68,68,.1);   color: #ef4444; }
+    .status-badge--within   { background: rgba(16,185,129,.1);  color: #10b981; }
+    .status-badge--over     { background: rgba(239,68,68,.1);   color: #ef4444; }
+
+    .cat-tag {
+        display: inline-block;
+        padding: 3px 9px;
+        background: rgba(26,107,181,.08);
+        color: var(--d-primary);
+        border-radius: 5px;
+        font-size: .78rem;
+        font-weight: 600;
+    }
+
+    /* Budget grid */
+    .budget-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        padding: 20px;
+    }
+
+    .budget-item {
+        padding: 16px;
+        background: #fafbfc;
+        border-radius: 8px;
+        border: 1px solid var(--d-border);
+    }
+
+    .budget-item strong { 
+        font-size: .88rem; 
+        color: var(--d-text); 
+        display: block; 
+        margin-bottom: 10px; 
+    }
+
+    .budget-input-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .budget-input-group span {
+        font-weight: 600;
+        color: var(--d-muted);
+        min-width: 20px;
+    }
+
+    .budget-input-group input {
+        flex: 1;
+        padding: 7px 10px;
+        border: 1px solid var(--d-border);
+        border-radius: 6px;
+        font-size: .88rem;
+        color: var(--d-text);
+    }
+
+    .budget-input-group input:focus {
+        outline: none;
+        border-color: var(--d-primary);
+        box-shadow: 0 0 0 3px rgba(26,107,181,.1);
+    }
+
+    .budget-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: .76rem;
+    }
+
+    .budget-meta small { color: var(--d-muted); }
+
+    .budget-bar { 
+        height: 6px; 
+        background: #e9eef6; 
+        border-radius: 4px; 
+        overflow: hidden; 
+        margin-top: 6px;
+    }
+
+    .budget-bar-fill { 
+        height: 100%; 
+        border-radius: 4px; 
+        background: #10b981;
+    }
+
+    .budget-bar-fill--over { background: #ef4444; }
+
+    /* Form section */
+    .form-section {
+        background: var(--d-card);
+        border: 1px solid var(--d-border);
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-bottom: 20px;
+    }
+
+    .form-label-custom {
+        font-size: .88rem;
+        font-weight: 600;
+        color: var(--d-text);
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    .form-control-custom {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--d-border);
+        border-radius: 7px;
+        font-size: .88rem;
+        color: var(--d-text);
+        background: var(--d-card);
+        font-family: inherit;
+    }
+
+    .form-control-custom:focus {
+        outline: none;
+        border-color: var(--d-primary);
+        box-shadow: 0 0 0 3px rgba(26,107,181,.1);
+    }
+
+    .form-hint {
+        font-size: .76rem;
+        color: var(--d-muted);
+        margin-top: 6px;
+    }
+
+    /* Action buttons */
+    .action-btn {
+        font-size: .88rem;
+        padding: 8px 20px;
+        border-radius: 7px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        transition: filter .15s ease;
+        text-decoration: none;
+    }
+
+    .action-btn:hover { filter: brightness(.9); }
+
+    .action-btn--approve { 
+        background: #10b981; 
+        color: #fff; 
+    }
+
+    .action-btn--reject { 
+        background: #ef4444; 
+        color: #fff; 
+    }
+
+    .action-divider {
+        height: 1px;
+        background: var(--d-border);
+        margin: 20px 0;
+    }
+
+    .receipt-link {
+        font-size: .82rem;
+        color: var(--d-primary);
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .receipt-link:hover { color: #154a8a; }
+
+    /* Page header layout */
+    .page-header-wrapper {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    @@media (max-width: 768px) {
+        .page-header-wrapper { flex-direction: column; align-items: flex-start; }
+        .budget-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="page-wrapper">
+    <div class="container-fluid px-4">
+        <!-- Page Header -->
+        <div class="page-header-wrapper">
+            <div>
+                <h1 class="detail-title">
+                    <i class="bi bi-file-earmark-text"></i>
+                    Expense Report #@Model.Id
+                </h1>
+            </div>
+            <a class="back-btn" asp-controller="CEO" asp-action="Approvals">
+                <i class="bi bi-arrow-left"></i> Back to Approvals
+            </a>
+        </div>
+
+        <!-- Summary Card -->
+        <div class="summary-card">
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <label>Driver</label>
+                    <div class="meta-value">@ViewBag.ReportUserName</div>
                 </div>
-                <div class="col-md-2">
-                    <strong>Budget:</strong>
-                    @if (Model.BudgetCheck == CEMS.Models.BudgetCheckStatus.OverBudget)
-                    {
-                        <span class="badge bg-danger">Over Budget</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-success">Within Budget</span>
-                    }
+                <div class="meta-item">
+                    <label>Submitted</label>
+                    <div class="meta-value">@Model.SubmissionDate.ToLocalTime().ToString("MMM d, yyyy")</div>
                 </div>
-                <div class="col-md-2"><strong>Total:</strong> <span class="fs-5 fw-bold text-primary">₱@Model.TotalAmount.ToString("N2")</span></div>
+                <div class="meta-item">
+                    <label>Status</label>
+                    <div class="meta-value">
+                        @if (Model.Status == CEMS.Models.ReportStatus.PendingCEOApproval)
+                        {
+                            <span class="status-badge status-badge--pending">Pending CEO</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge">@Model.Status</span>
+                        }
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <label>Budget Status</label>
+                    <div class="meta-value">
+                        @if (Model.BudgetCheck == CEMS.Models.BudgetCheckStatus.OverBudget)
+                        {
+                            <span class="status-badge status-badge--over">Over Budget</span>
+                        }
+                        else
+                        {
+                            <span class="status-badge status-badge--within">Within Budget</span>
+                        }
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <label>Total Amount</label>
+                    <div class="meta-amount">₱@Model.TotalAmount.ToString("N2")</div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Expense Items -->
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light"><strong>Expense Items</strong></div>
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
+        <!-- Expense Items -->
+        <div class="section-card">
+            <div class="section-header">
+                <i class="bi bi-receipt"></i>
+                Expense Items
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="dash-table">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -66,25 +407,25 @@
                         {
                             <tr>
                                 <td>@item.Date.ToLocalTime().ToString("yyyy-MM-dd")</td>
-                                <td><span class="badge bg-primary bg-opacity-10 text-primary">@item.Category</span></td>
-                                <td>₱@item.Amount.ToString("N2")</td>
+                                <td><span class="cat-tag">@item.Category</span></td>
+                                <td><strong>₱@item.Amount.ToString("N2")</strong></td>
                                 <td>@item.Description</td>
                                 <td>
                                     @if (item.ReceiptData != null && item.ReceiptData.Length > 0)
                                     {
-                                        <a class="btn btn-sm btn-outline-primary" target="_blank" href="@Url.Action("Receipt", "Driver", new { id = item.Id })">
+                                        <a class="receipt-link" target="_blank" href="@Url.Action("Receipt", "Driver", new { id = item.Id })">
                                             <i class="bi bi-file-earmark-image"></i> View
                                         </a>
                                     }
                                     else if (!string.IsNullOrEmpty(item.ReceiptPath))
                                     {
-                                        <a class="btn btn-sm btn-outline-primary" target="_blank" href="@item.ReceiptPath">
+                                        <a class="receipt-link" target="_blank" href="@item.ReceiptPath">
                                             <i class="bi bi-file-earmark-image"></i> View
                                         </a>
                                     }
                                     else
                                     {
-                                        <span class="text-muted">—</span>
+                                        <span class="form-hint">—</span>
                                     }
                                 </td>
                             </tr>
@@ -93,65 +434,69 @@
                 </table>
             </div>
         </div>
-    </div>
 
-    <!-- Budget Details & Adjustment -->
-    @{
-        var budgets = ViewBag.Budgets as List<CEMS.Models.Budget> ?? new List<CEMS.Models.Budget>();
-    }
+        <!-- Budget Details & Adjustment -->
+        <div class="section-card">
+            <div class="section-header">
+                <i class="bi bi-graph-up"></i>
+                Budget Details &amp; Optional Adjustment
+            </div>
+            <div class="budget-grid">
+                @foreach (var b in budgets)
+                {
+                    var remaining = b.Allocated - b.Spent;
+                    var pct = b.Allocated == 0 ? 0 : (int)Math.Round((double)(b.Spent / b.Allocated * 100));
+                    <div class="budget-item">
+                        <strong>@b.Category</strong>
+                        <div class="budget-input-group">
+                            <span>₱</span>
+                            <input type="number" step="0.01" name="budget_@b.Category" value="@b.Allocated" class="form-control" />
+                        </div>
+                        <div class="budget-meta">
+                            <small>Spent: ₱@b.Spent.ToString("N2")</small>
+                            <small>Remaining: ₱@remaining.ToString("N2")</small>
+                        </div>
+                        <div class="budget-bar">
+                            <div class="budget-bar-fill @(pct >= 100 ? "budget-bar-fill--over" : "")" style="width:@Math.Min(pct,100)%"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
 
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-light"><strong>Budget Details &amp; Optional Adjustment</strong></div>
-        <div class="card-body">
+        <!-- Approval Form -->
+        <div class="form-section">
             <form method="post" asp-action="CEOApprove" asp-controller="CEO">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
 
-                <p class="text-muted">You may optionally adjust allocated budgets to accommodate this report. Leave values unchanged to keep current allocations.</p>
+                <div class="form-hint" style="margin-bottom: 16px;">You may optionally adjust allocated budgets to accommodate this report. Leave values unchanged to keep current allocations.</div>
 
-                <div class="row">
-                    @foreach (var b in budgets)
-                    {
-                        var remaining = b.Allocated - b.Spent;
-                        var pct = b.Allocated == 0 ? 0 : (int)Math.Round((double)(b.Spent / b.Allocated * 100));
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label"><strong>@b.Category</strong></label>
-                            <div class="input-group mb-1">
-                                <span class="input-group-text">₱</span>
-                                <input type="number" step="0.01" name="budget_@b.Category" value="@b.Allocated" class="form-control" />
-                            </div>
-                            <small class="text-muted">Spent: ₱@b.Spent.ToString("N2") | Remaining: ₱@remaining.ToString("N2")</small>
-                            <div class="progress mt-1" style="height:6px;">
-                                <div class="progress-bar @(pct >= 100 ? "bg-danger" : "")" style="width:@Math.Min(pct,100)%"></div>
-                            </div>
-                        </div>
-                    }
+                <div style="margin-bottom: 16px;">
+                    <label class="form-label-custom">Remarks (optional)</label>
+                    <textarea name="remarks" class="form-control-custom" rows="3" placeholder="Add any notes about this approval..."></textarea>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label"><strong>Remarks (optional)</strong></label>
-                    <textarea name="remarks" class="form-control" rows="3" placeholder="Add any notes about this approval..."></textarea>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check-circle"></i> Approve and Forward to Finance
-                    </button>
-                </div>
+                <button type="submit" class="action-btn action-btn--approve">
+                    <i class="bi bi-check-circle"></i> Approve and Forward to Finance
+                </button>
             </form>
+        </div>
 
-            <hr />
-
+        <!-- Rejection Form -->
+        <div class="form-section">
             <form method="post" asp-action="CEOReject" asp-controller="CEO">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="id" value="@Model.Id" />
-                <div class="mb-3">
-                    <label class="form-label"><strong>Rejection Reason <span class="text-danger">*</span></strong></label>
-                    <textarea name="remarks" class="form-control" rows="2" placeholder="Please explain why this report is being rejected..." required></textarea>
+
+                <label class="form-label-custom">Rejection Reason <span style="color: #ef4444;">*</span></label>
+                <textarea name="remarks" class="form-control-custom" rows="3" placeholder="Please explain why this report is being rejected..." required></textarea>
+
+                <div style="margin-top: 16px;">
+                    <button type="submit" class="action-btn action-btn--reject">
+                        <i class="bi bi-x-circle"></i> Reject Report
+                    </button>
                 </div>
-                <button type="submit" class="btn btn-danger">
-                    <i class="bi bi-x-circle"></i> Reject Report
-                </button>
             </form>
         </div>
     </div>

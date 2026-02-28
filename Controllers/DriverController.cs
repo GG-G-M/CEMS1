@@ -68,7 +68,7 @@ namespace CEMS.Controllers
             if (start.HasValue)
                 reportsQuery = reportsQuery.Where(r => r.SubmissionDate >= start.Value);
             if (end.HasValue)
-                reportsQuery = reportsQuery.Where(r => r.SubmissionDate <= end.Value);
+                reportsQuery = reportsQuery.Where(r => r.SubmissionDate <= end.Value.AddDays(1));
 
             var nowUtc = DateTime.UtcNow;
             var monthStart = new DateTime(nowUtc.Year, nowUtc.Month, 1);
@@ -465,7 +465,56 @@ namespace CEMS.Controllers
                     return View("Submit/Index", model);
                 }
 
-                _db.Expenses.Add(model);
+                // Create an ExpenseReport with the single expense item
+                var expenseItem = new ExpenseItem
+                {
+                    Date = model.Date,
+                    Category = model.Category,
+                    Amount = model.Amount,
+                    Description = model.Description,
+                    ReceiptData = model.ReceiptData,
+                    ReceiptContentType = model.ReceiptContentType
+                };
+
+                var report = new ExpenseReport
+                {
+                    UserId = user.Id,
+                    SubmissionDate = DateTime.UtcNow,
+                    Status = ReportStatus.Submitted,
+                    TotalAmount = model.Amount,
+                    TripStart = model.Date,
+                    TripEnd = model.Date,
+                    TripDays = 1,
+                    Items = new List<ExpenseItem> { expenseItem }
+                };
+
+                // Check budget
+                var budget = await _db.Budgets.FirstOrDefaultAsync(b => b.Category == model.Category);
+                if (budget == null)
+                {
+                    report.BudgetCheck = BudgetCheckStatus.OverBudget;
+                }
+                else
+                {
+                    var daysInMonth = DateTime.DaysInMonth(model.Date.Year, model.Date.Month);
+                    var monthStart = new DateTime(model.Date.Year, model.Date.Month, 1);
+                    var allowedForDay = budget.Allocated / daysInMonth;
+
+                    var currentMonthSpent = await _db.ExpenseItems
+                        .Where(i => i.Category == model.Category && i.Date >= monthStart)
+                        .SumAsync(i => (decimal?)i.Amount) ?? 0m;
+
+                    if (model.Amount > allowedForDay || currentMonthSpent + model.Amount > budget.Allocated)
+                    {
+                        report.BudgetCheck = BudgetCheckStatus.OverBudget;
+                    }
+                    else
+                    {
+                        report.BudgetCheck = BudgetCheckStatus.WithinBudget;
+                    }
+                }
+
+                _db.ExpenseReports.Add(report);
                 await _db.SaveChangesAsync();
 
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")

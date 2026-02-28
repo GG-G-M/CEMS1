@@ -57,6 +57,33 @@ namespace CEMS.Controllers
             }
             ViewBag.RoleCounts = roleCounts;
 
+            // Expense report stats for dashboard charts
+            var totalExpenseReports = await _db.ExpenseReports.CountAsync();
+            ViewBag.TotalExpenseReports = totalExpenseReports;
+
+            var expenseStatusCounts = await _db.ExpenseReports
+                .GroupBy(e => e.Status)
+                .Select(g => new { Status = g.Key, Count = g.Count() })
+                .ToListAsync();
+            ViewBag.ExpenseStatusCounts = expenseStatusCounts.ToDictionary(x => x.Status.ToString(), x => x.Count);
+
+            // Monthly audit activity for the last 6 months
+            var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
+            var monthlyAuditData = await _db.AuditLogs
+                .Where(l => l.Timestamp >= sixMonthsAgo)
+                .GroupBy(l => new { l.Timestamp.Year, l.Timestamp.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .OrderBy(g => g.Year).ThenBy(g => g.Month)
+                .ToListAsync();
+            ViewBag.MonthlyAuditLabels = monthlyAuditData.Select(m => new DateTime(m.Year, m.Month, 1).ToString("MMM yyyy")).ToList();
+            ViewBag.MonthlyAuditCounts = monthlyAuditData.Select(m => m.Count).ToList();
+
+            // Active vs locked users
+            var allUsersForStats = await _userManager.Users.ToListAsync();
+            var lockedCount = allUsersForStats.Count(u => u.LockoutEnd.HasValue && u.LockoutEnd > DateTimeOffset.UtcNow);
+            ViewBag.ActiveUsers = allUsersForStats.Count - lockedCount;
+            ViewBag.LockedUsers = lockedCount;
+
             return View("Dashboard/Index");
         }
 
@@ -328,14 +355,14 @@ namespace CEMS.Controllers
                 ContactNumber = ceo?.ContactNumber ?? manager?.ContactNumber ?? finance?.ContactNumber ?? driver?.ContactNumber
             };
 
-            return View("Users/Edit", vm);
+            return PartialView("Users/Edit", vm);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditUser(EditUserViewModel model)
         {
-            if (!ModelState.IsValid) return View("Users/Edit", model);
+            if (!ModelState.IsValid) return PartialView("Users/Edit", model);
 
             var user = await _userManager.FindByIdAsync(model.UserId);
             if (user == null) return NotFound();

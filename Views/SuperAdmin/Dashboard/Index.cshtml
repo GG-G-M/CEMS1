@@ -7,9 +7,14 @@
     var roleCounts = (Dictionary<string, int>)ViewBag.RoleCounts;
     var recentLogs = (List<CEMS.Models.AuditLog>)ViewBag.RecentLogs;
     var logUsers = (Dictionary<string, string?>)ViewBag.LogUsers;
+    var totalExpenseReports = (int)ViewBag.TotalExpenseReports;
+    var expenseStatusCounts = (Dictionary<string, int>)ViewBag.ExpenseStatusCounts;
+    var monthlyAuditLabels = (List<string>)ViewBag.MonthlyAuditLabels;
+    var monthlyAuditCounts = (List<int>)ViewBag.MonthlyAuditCounts;
+    var activeUsers = (int)ViewBag.ActiveUsers;
+    var lockedUsers = (int)ViewBag.LockedUsers;
 }
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <style>
@@ -25,7 +30,6 @@
         --d-radius-lg: 10px;
     }
 
-    /* TOP BAR - matching all dashboards */
     .top-bar {
         background: white;
         border-radius: 12px;
@@ -48,16 +52,8 @@
         min-width: auto;
     }
 
-    .greeting {
-        font-size: 1rem;
-        color: #1e293b;
-    }
-
-        .greeting strong {
-            color: #0288d1;
-            font-weight: 600;
-            margin-left: 4px;
-        }
+    .greeting { font-size: 1rem; color: #1e293b; }
+    .greeting strong { color: #0288d1; font-weight: 600; margin-left: 4px; }
 
     .filter-section {
         display: flex;
@@ -85,119 +81,39 @@
         flex-shrink: 0;
     }
 
-        .date-field span {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-            white-space: nowrap;
-        }
-
-        .date-field input {
-            width: auto;
-            min-width: 120px;
-            padding: 6px 10px;
-            border: 1px solid #e9eef2;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            color: #1e293b;
-            background: white;
-        }
-
-        .date-field input:focus {
-            outline: none;
-            border-color: #0288d1;
-            box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1);
-        }
-
-    body.dark-mode .date-field input {
-        background: #0f172a;
-        border-color: #334155;
-        color: #e2e8f0;
-    }
-
-    body.dark-mode .date-field input:focus {
-        border-color: #0288d1;
-        box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.2);
-    }
-
-    .quick-filters {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        background: #f8fafc;
-        padding: 4px;
-        border-radius: 8px;
-        border: 1px solid #edf2f7;
-        flex-shrink: 0;
-    }
-
-    .filter-btn {
-        padding: 6px 16px;
-        border: none;
-        background: transparent;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #475569;
-        cursor: pointer;
-        transition: all 0.2s ease;
+    .date-field span {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
         white-space: nowrap;
-        flex-shrink: 0;
     }
 
-        .filter-btn:hover {
-            background: #e2e8f0;
-            color: #0288d1;
-        }
-
-        .filter-btn.active {
-            background: #0288d1;
-            color: white;
-        }
-
-            .filter-btn.active:hover {
-                background: #01579b;
-            }
-
-    body.dark-mode .top-bar {
-        background: #1e293b;
-        border-color: #334155;
+    .date-field input {
+        width: auto;
+        min-width: 120px;
+        padding: 6px 10px;
+        border: 1px solid #e9eef2;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        color: #1e293b;
+        background: white;
     }
 
-    body.dark-mode .greeting {
-        color: #e2e8f0;
+    .date-field input:focus {
+        outline: none;
+        border-color: #0288d1;
+        box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.1);
     }
 
-    body.dark-mode .quick-filters {
-        background: #0f172a;
-        border-color: #334155;
-    }
+    body.dark-mode .top-bar { background: #1e293b; border-color: #334155; }
+    body.dark-mode .greeting { color: #e2e8f0; }
+    body.dark-mode .date-field input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+    body.dark-mode .date-field input:focus { border-color: #0288d1; box-shadow: 0 0 0 3px rgba(2, 136, 209, 0.2); }
 
-    body.dark-mode .filter-btn {
-        color: #94a3b8;
-    }
-
-        body.dark-mode .filter-btn:hover {
-            background: #334155;
-            color: #4fc3f7;
-        }
-
-        body.dark-mode .filter-btn.active {
-            background: #0288d1;
-            color: white;
-        }
-
-    .page-wrapper {
-        background: var(--d-bg);
-        min-height: calc(100vh - 80px);
-        padding: 28px 0 40px;
-    }
-
-    .page-header {
-        margin-bottom: 32px;
-    }
+    .page-wrapper { background: var(--d-bg); min-height: calc(100vh - 80px); padding: 28px 0 40px; }
+    .page-header { margin-bottom: 32px; }
 
     .greeting-title {
         font-size: 1.8rem;
@@ -209,14 +125,11 @@
         gap: 12px;
     }
 
-    .greeting-subtitle {
-        color: var(--d-muted);
-        font-size: 0.95rem;
-    }
+    .greeting-subtitle { color: var(--d-muted); font-size: 0.95rem; }
 
     .metrics-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
         gap: 16px;
         margin-bottom: 28px;
     }
@@ -232,13 +145,13 @@
         transition: all 0.2s;
         text-decoration: none;
         color: inherit;
+        cursor: pointer;
     }
 
     .stat-card:hover {
         border-color: var(--d-primary);
         box-shadow: 0 4px 12px rgba(26, 107, 181, 0.08);
     }
-    .stat-card { cursor: pointer; }
 
     .stat-icon {
         width: 56px;
@@ -255,6 +168,7 @@
     .stat-icon--success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
     .stat-icon--warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
     .stat-icon--info { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .stat-icon--purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
 
     .stat-label {
         color: var(--d-muted);
@@ -265,22 +179,8 @@
         margin-bottom: 4px;
     }
 
-    .stat-value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--d-text);
-        line-height: 1.2;
-    }
-
-    .stat-sub {
-        color: var(--d-muted);
-        font-size: 0.85rem;
-        margin-top: 4px;
-    }
-
-    .action-section {
-        margin-bottom: 32px;
-    }
+    .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--d-text); line-height: 1.2; }
+    .stat-sub { color: var(--d-muted); font-size: 0.85rem; margin-top: 4px; }
 
     .section-title {
         font-size: 1.1rem;
@@ -290,58 +190,6 @@
         display: flex;
         align-items: center;
         gap: 8px;
-    }
-
-    .action-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 16px;
-    }
-
-    .action-card {
-        background: var(--d-card);
-        border: 1px solid var(--d-border);
-        border-radius: var(--d-radius-lg);
-        padding: 20px;
-        text-align: center;
-        transition: all 0.2s;
-        text-decoration: none;
-        color: inherit;
-        cursor: pointer;
-    }
-
-    .action-card:hover {
-        border-color: var(--d-primary);
-        box-shadow: 0 4px 12px rgba(26, 107, 181, 0.08);
-        transform: translateY(-2px);
-    }
-
-    .action-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.8rem;
-        margin: 0 auto 12px;
-    }
-
-    .action-icon--users { background: rgba(26, 107, 181, 0.1); color: var(--d-primary); }
-    .action-icon--roles { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-    .action-icon--logs { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
-    .action-icon--reports { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
-
-    .action-title {
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--d-text);
-        margin-bottom: 8px;
-    }
-
-    .action-desc {
-        color: var(--d-muted);
-        font-size: 0.8rem;
     }
 
     .role-grid {
@@ -365,18 +213,8 @@
         box-shadow: 0 2px 8px rgba(26, 107, 181, 0.08);
     }
 
-    .role-count {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: var(--d-primary);
-        margin-bottom: 4px;
-    }
-
-    .role-name {
-        font-size: 0.85rem;
-        font-weight: 600;
-        color: var(--d-text);
-    }
+    .role-count { font-size: 1.8rem; font-weight: 700; color: var(--d-primary); margin-bottom: 4px; }
+    .role-name { font-size: 0.85rem; font-weight: 600; color: var(--d-text); }
 
     .table-card {
         background: var(--d-card);
@@ -397,49 +235,14 @@
         gap: 8px;
     }
 
-    .table-card-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.95rem;
-    }
+    .table-card-title { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+    .table-card-title i { color: var(--d-primary); font-size: 1rem; }
 
-    .table-card-title i {
-        color: var(--d-primary);
-        font-size: 1rem;
-    }
-
-    .dash-table {
-        width: 100%;
-        margin-bottom: 0;
-    }
-
-    .dash-table thead th {
-        background: #f8fafc;
-        color: var(--d-muted);
-        font-weight: 600;
-        font-size: 0.78rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 12px 16px;
-        border: none;
-    }
-
-    .dash-table tbody td {
-        padding: 14px 16px;
-        border-bottom: 1px solid #f1f5f9;
-        vertical-align: middle;
-        color: var(--d-text);
-        font-size: 0.9rem;
-    }
-
-    .dash-table tbody tr:last-child td {
-        border-bottom: none;
-    }
-
-    .dash-table tbody tr:hover {
-        background: #f8fafc;
-    }
+    .dash-table { width: 100%; margin-bottom: 0; }
+    .dash-table thead th { background: #f8fafc; color: var(--d-muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 16px; border: none; }
+    .dash-table tbody td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: var(--d-text); font-size: 0.9rem; }
+    .dash-table tbody tr:last-child td { border-bottom: none; }
+    .dash-table tbody tr:hover { background: #f8fafc; }
 
     .action-btn {
         font-size: 0.85rem;
@@ -457,39 +260,12 @@
         gap: 6px;
     }
 
-    .action-btn:hover {
-        background: var(--d-primary);
-        color: #fff;
-        border-color: var(--d-primary);
-    }
+    .action-btn:hover { background: var(--d-primary); color: #fff; border-color: var(--d-primary); }
 
-    .empty-state {
-        text-align: center;
-        padding: 40px 20px;
-    }
+    .empty-state { text-align: center; padding: 40px 20px; }
+    .empty-state i { font-size: 2.5rem; color: var(--d-border); margin-bottom: 12px; }
+    .empty-state p { color: var(--d-muted); margin: 0; }
 
-    .empty-state i {
-        font-size: 2.5rem;
-        color: var(--d-border);
-        margin-bottom: 12px;
-    }
-
-    .empty-state p {
-        color: var(--d-muted);
-        margin: 0;
-    }
-
-    .badge-action {
-        display: inline-block;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        font-weight: 600;
-    }
-
-    .badge-action--primary { background: rgba(26, 107, 181, 0.1); color: var(--d-primary); }
-
-    /* Chart Container */
     .chart-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -514,11 +290,9 @@
         gap: 8px;
     }
 
-    .chart-card-title i {
-        color: var(--d-primary);
-    }
+    .chart-card-title i { color: var(--d-primary); }
 
-    canvas { max-height: 240px !important; }
+    canvas { max-height: 260px !important; }
 
     @@media (max-width: 768px) {
         .page-wrapper { padding: 20px 0 32px; }
@@ -526,7 +300,6 @@
         .metrics-grid { grid-template-columns: 1fr; }
         .stat-card { gap: 12px; padding: 16px; }
         .stat-value { font-size: 1.3rem; }
-        .action-grid { grid-template-columns: repeat(2, 1fr); }
         .role-grid { grid-template-columns: repeat(2, 1fr); }
         .chart-grid { grid-template-columns: 1fr; }
     }
@@ -534,7 +307,7 @@
 
 <div class="page-wrapper">
     <div class="container-fluid px-4">
-        <!-- TOP BAR - matching all dashboards -->
+        <!-- TOP BAR -->
         <div class="top-bar">
             <div class="welcome-section">
                 <div class="greeting">
@@ -553,23 +326,23 @@
                         <input type="date" id="filterEnd">
                     </div>
                 </div>
-                <div class="quick-filters">
-                    <button class="filter-btn" data-range="today">Today</button>
-                    <button class="filter-btn" data-range="week">Week</button>
-                    <button class="filter-btn" data-range="month">Month</button>
-                    <button class="filter-btn" data-range="year">Year</button>
+                <div class="quick-filter">
+                    <button type="button" class="quick-filter-btn" data-range="today">Today</button>
+                    <button type="button" class="quick-filter-btn" data-range="week">Week</button>
+                    <button type="button" class="quick-filter-btn" data-range="month">Month</button>
+                    <button type="button" class="quick-filter-btn" data-range="year">Year</button>
                 </div>
             </div>
         </div>
 
-        <!-- Header -->
+        @* <!-- Header -->
         <div class="page-header">
             <h1 class="greeting-title">
                 <i class="bi bi-shield-lock"></i>
                 Super Admin Dashboard
             </h1>
             <p class="greeting-subtitle">System monitoring and administration</p>
-        </div>
+        </div> *@
 
         <!-- Key Metrics -->
         <div class="metrics-grid">
@@ -580,7 +353,7 @@
                 <div style="flex: 1;">
                     <div class="stat-label">Total Users</div>
                     <div class="stat-value">@totalUsers</div>
-                    <div class="stat-sub">System Users</div>
+                    <div class="stat-sub">@activeUsers active · @lockedUsers locked</div>
                 </div>
             </a>
 
@@ -605,50 +378,21 @@
                     <div class="stat-sub">Audit Logs</div>
                 </div>
             </a>
-        </div>
 
-        <!-- Quick Actions -->
-        <div class="action-section">
-            <h3 class="section-title">
-                <i class="bi bi-lightning"></i> Quick Actions
-            </h3>
-            <div class="action-grid">
-                <a href="@Url.Action("Index", "SuperAdmin", new { area = "" })?page=users" class="action-card">
-                    <div class="action-icon action-icon--users">
-                        <i class="bi bi-people"></i>
-                    </div>
-                    <div class="action-title">Manage Users</div>
-                    <div class="action-desc">Add, edit or remove users</div>
-                </a>
-
-                <a href="@Url.Action("AuditLogs", "SuperAdmin", new { area = "" })" class="action-card">
-                    <div class="action-icon action-icon--logs">
-                        <i class="bi bi-file-earmark-text"></i>
-                    </div>
-                    <div class="action-title">Audit Logs</div>
-                    <div class="action-desc">View system activities</div>
-                </a>
-
-                <a href="javascript:void(0)" class="action-card" onclick="alert('Role management coming soon!')">
-                    <div class="action-icon action-icon--roles">
-                        <i class="bi bi-person-badge"></i>
-                    </div>
-                    <div class="action-title">Manage Roles</div>
-                    <div class="action-desc">Configure user roles</div>
-                </a>
-
-                <a href="javascript:void(0)" class="action-card" onclick="alert('System reports coming soon!')">
-                    <div class="action-icon action-icon--reports">
-                        <i class="bi bi-graph-up"></i>
-                    </div>
-                    <div class="action-title">System Reports</div>
-                    <div class="action-desc">View analytics</div>
-                </a>
+            <div class="stat-card">
+                <div class="stat-icon stat-icon--purple">
+                    <i class="bi bi-file-earmark-text"></i>
+                </div>
+                <div style="flex: 1;">
+                    <div class="stat-label">Expense Reports</div>
+                    <div class="stat-value">@totalExpenseReports</div>
+                    <div class="stat-sub">All time</div>
+                </div>
             </div>
         </div>
 
         <!-- Role Distribution -->
-        <div class="action-section">
+        <div class="mb-4">
             <h3 class="section-title">
                 <i class="bi bi-diagram-3"></i> Role Distribution
             </h3>
@@ -660,29 +404,58 @@
                         <div class="role-name">@rc.Key</div>
                     </div>
                 }
-                 </div>
             </div>
+        </div>
 
-            <!-- Analytics Charts -->
-            <div class="chart-grid">
-                <div class="chart-card">
-                    <div class="chart-card-title">
-                        <i class="bi bi-pie-chart"></i>
-                        Role Distribution Chart
-                    </div>
-                    <canvas id="roleChart"></canvas>
+        <!-- Analytics Charts — Row 1 -->
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">
+                    <i class="bi bi-pie-chart"></i>
+                    Role Distribution
                 </div>
-                <div class="chart-card">
-                    <div class="chart-card-title">
-                        <i class="bi bi-bar-chart"></i>
-                        Activity by Action Type
-                    </div>
-                    <canvas id="activityChart"></canvas>
-                    </div>
+                <canvas id="roleChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">
+                    <i class="bi bi-bar-chart"></i>
+                    Activity by Action Type
                 </div>
+                <canvas id="activityChart"></canvas>
+            </div>
+        </div>
 
-                <!-- Recent Audit Logs -->
-                <div class="table-card">
+        <!-- Analytics Charts — Row 2 -->
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">
+                    <i class="bi bi-graph-up-arrow"></i>
+                    Monthly Audit Activity (Last 6 Months)
+                </div>
+                <canvas id="monthlyAuditChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-title">
+                    <i class="bi bi-clipboard-data"></i>
+                    Expense Reports by Status
+                </div>
+                <canvas id="expenseStatusChart"></canvas>
+            </div>
+        </div>
+
+        <!-- User Status Chart -->
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-card-title">
+                    <i class="bi bi-person-check"></i>
+                    User Account Status
+                </div>
+                <canvas id="userStatusChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Recent Audit Logs -->
+        <div class="table-card">
             <div class="table-card-head">
                 <div class="table-card-title">
                     <i class="bi bi-activity"></i>
@@ -715,9 +488,7 @@
                             @foreach (var log in recentLogs)
                             {
                                 <tr>
-                                    <td>
-                                        <span style="color: #0f1724; font-weight: 600;">@log.Action</span>
-                                    </td>
+                                    <td><span style="font-weight: 600;">@log.Action</span></td>
                                     <td>
                                         @if (log.PerformedByUserId != null && logUsers.ContainsKey(log.PerformedByUserId))
                                         {
@@ -741,28 +512,136 @@
 </div>
 
 <script>
-    // Load and render charts
     function initCharts() {
-        // Role Distribution Chart
+        var chartColors = [
+            'rgba(26, 107, 181, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(245, 158, 11, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(139, 92, 246, 0.8)',
+            'rgba(236, 72, 153, 0.8)',
+            'rgba(107, 114, 128, 0.8)'
+        ];
+
+        // 1. Role Distribution (Doughnut)
         var roleLabels = [@string.Join(",", roleCounts.Keys.Select(k => $"'{k}'"))];
         var roleData = [@string.Join(",", roleCounts.Values)];
-
         var roleCtx = document.getElementById('roleChart');
         if (roleCtx && roleLabels.length > 0) {
             new Chart(roleCtx, {
                 type: 'doughnut',
                 data: {
                     labels: roleLabels,
+                    datasets: [{ data: roleData, backgroundColor: chartColors, borderColor: '#fff', borderWidth: 2 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 }, padding: 12, color: '#0f1724' } } }
+                }
+            });
+        }
+
+        // 2. Activity by Action Type (Horizontal Bar)
+        var actionCounts = {};
+        var logs = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(recentLogs, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase }));
+        logs.forEach(function(log) { actionCounts[log.action] = (actionCounts[log.action] || 0) + 1; });
+        var actionLabels = Object.keys(actionCounts).slice(0, 8);
+        var actionData = actionLabels.map(function(l) { return actionCounts[l]; });
+        var activityCtx = document.getElementById('activityChart');
+        if (activityCtx && actionLabels.length > 0) {
+            new Chart(activityCtx, {
+                type: 'bar',
+                data: {
+                    labels: actionLabels,
+                    datasets: [{ label: 'Count', data: actionData, backgroundColor: 'rgba(26, 107, 181, 0.6)', borderColor: 'rgba(26, 107, 181, 1)', borderWidth: 1, borderRadius: 6 }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6b7280', font: { size: 11 } } },
+                        y: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        // 3. Monthly Audit Activity (Line Chart)
+        var monthlyLabels = [@string.Join(",", monthlyAuditLabels.Select(l => $"'{l}'"))];
+        var monthlyCounts = [@string.Join(",", monthlyAuditCounts)];
+        var monthlyCtx = document.getElementById('monthlyAuditChart');
+        if (monthlyCtx && monthlyLabels.length > 0) {
+            new Chart(monthlyCtx, {
+                type: 'line',
+                data: {
+                    labels: monthlyLabels,
                     datasets: [{
-                        data: roleData,
-                        backgroundColor: [
-                            'rgba(26, 107, 181, 0.8)',   // Primary blue
-                            'rgba(16, 185, 129, 0.8)',   // Success green
-                            'rgba(245, 158, 11, 0.8)',   // Warning orange
-                            'rgba(59, 130, 246, 0.8)',   // Info light blue
-                            'rgba(139, 92, 246, 0.8)',   // Purple
-                            'rgba(107, 114, 128, 0.8)'   // Gray
-                        ],
+                        label: 'Audit Actions',
+                        data: monthlyCounts,
+                        borderColor: 'rgba(26, 107, 181, 1)',
+                        backgroundColor: 'rgba(26, 107, 181, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointBackgroundColor: 'rgba(26, 107, 181, 1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6b7280', font: { size: 11 } } },
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6b7280', font: { size: 11 }, stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        // 4. Expense Reports by Status (Bar Chart)
+        var expenseLabels = [@string.Join(",", expenseStatusCounts.Keys.Select(k => $"'{k}'"))];
+        var expenseData = [@string.Join(",", expenseStatusCounts.Values)];
+        var expenseCtx = document.getElementById('expenseStatusChart');
+        if (expenseCtx && expenseLabels.length > 0) {
+            new Chart(expenseCtx, {
+                type: 'bar',
+                data: {
+                    labels: expenseLabels,
+                    datasets: [{
+                        label: 'Reports',
+                        data: expenseData,
+                        backgroundColor: chartColors.slice(0, expenseLabels.length),
+                        borderRadius: 6,
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#6b7280', font: { size: 11 } } },
+                        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#6b7280', font: { size: 11 }, stepSize: 1 } }
+                    }
+                }
+            });
+        }
+
+        // 5. User Status (Doughnut)
+        var userStatusCtx = document.getElementById('userStatusChart');
+        if (userStatusCtx) {
+            new Chart(userStatusCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Active', 'Locked'],
+                    datasets: [{
+                        data: [@activeUsers, @lockedUsers],
+                        backgroundColor: ['rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.8)'],
                         borderColor: '#fff',
                         borderWidth: 2
                     }]
@@ -770,168 +649,71 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { 
-                                boxWidth: 12,
-                                font: { size: 12 },
-                                padding: 12,
-                                color: '#0f1724'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Activity by Action Type
-        var actionCounts = {};
-        var logs = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(recentLogs));
-        logs.forEach(function(log) {
-            actionCounts[log.action] = (actionCounts[log.action] || 0) + 1;
-        });
-
-        var actionLabels = Object.keys(actionCounts).slice(0, 8);
-        var actionData = actionLabels.map(function(label) { return actionCounts[label]; });
-
-        var activityCtx = document.getElementById('activityChart');
-        if (activityCtx && actionLabels.length > 0) {
-            new Chart(activityCtx, {
-                type: 'bar',
-                data: {
-                    labels: actionLabels,
-                    datasets: [{
-                        label: 'Actions Count',
-                        data: actionData,
-                        backgroundColor: 'rgba(26, 107, 181, 0.6)',
-                        borderColor: 'rgba(26, 107, 181, 1)',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            grid: { color: 'rgba(0,0,0,0.05)' },
-                            ticks: { color: '#6b7280', font: { size: 11 } }
-                        },
-                        y: {
-                            grid: { display: false },
-                            ticks: { color: '#6b7280', font: { size: 11 } }
-                        }
-                    }
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 }, padding: 12, color: '#0f1724' } } }
                 }
             });
         }
     }
 
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            initCharts();
-            initQuickRangeButtons();
-        });
+    document.addEventListener('DOMContentLoaded', function() {
+        initCharts();
+        initQuickRangeButtons();
+    });
 
-        function initQuickRangeButtons() {
-            var startInput = document.getElementById('filterStart');
-            var endInput = document.getElementById('filterEnd');
+    function initQuickRangeButtons() {
+        var startInput = document.getElementById('filterStart');
+        var endInput = document.getElementById('filterEnd');
 
-            function setDateRange(start, end) {
-                startInput.value = start;
-                endInput.value = end;
-                applyFilter();
-                highlightActiveFilter();
-            }
-
-            function applyFilter() {
-                var start = startInput.value;
-                var end = endInput.value;
-                if (start && end) {
-                    window.location = '@Url.Action("Dashboard", "SuperAdmin")' + '?start=' + start + '&end=' + end;
-                }
-            }
-
-            function highlightActiveFilter() {
-                var start = new Date(startInput.value);
-                var end = new Date(endInput.value);
-                var now = new Date();
-                var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-                document.querySelectorAll('.filter-btn').forEach(function(btn) {
-                    btn.classList.remove('active');
-                });
-
-                var matchingRange = null;
-
-                if (start.getTime() === today.getTime() && end.getTime() === today.getTime()) {
-                    matchingRange = 'today';
-                }
-                else {
-                    var weekStart = new Date(today);
-                    weekStart.setDate(today.getDate() - today.getDay());
-                    if (start.getTime() === weekStart.getTime() && end.getTime() === today.getTime()) {
-                        matchingRange = 'week';
-                    }
-                }
-
-                if (!matchingRange) {
-                    var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                    if (start.getTime() === monthStart.getTime() && end.getTime() === today.getTime()) {
-                        matchingRange = 'month';
-                    }
-                }
-
-                if (!matchingRange) {
-                    var yearStart = new Date(now.getFullYear(), 0, 1);
-                    if (start.getTime() === yearStart.getTime() && end.getTime() === today.getTime()) {
-                        matchingRange = 'year';
-                    }
-                }
-
-                if (matchingRange) {
-                    var activeBtn = document.querySelector('[data-range="' + matchingRange + '"]');
-                    if (activeBtn) activeBtn.classList.add('active');
-                }
-            }
-
-            // Quick filter buttons
-            document.querySelectorAll('[data-range]').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    var range = this.getAttribute('data-range');
-                    var now = new Date();
-                    var start, end = now;
-
-                    if (range === 'today') {
-                        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                        end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                    } else if (range === 'week') {
-                        var weekStart = new Date(now);
-                        weekStart.setDate(now.getDate() - now.getDay());
-                        start = weekStart;
-                    } else if (range === 'month') {
-                        start = new Date(now.getFullYear(), now.getMonth(), 1);
-                    } else if (range === 'year') {
-                        start = new Date(now.getFullYear(), 0, 1);
-                    }
-
-                    var startStr = start.toISOString().split('T')[0];
-                    var endStr = end.toISOString().split('T')[0];
-                    setDateRange(startStr, endStr);
-                });
-            });
-
-            // Auto-filter on date change
-            startInput.addEventListener('change', applyFilter);
-            endInput.addEventListener('change', applyFilter);
-
+        function setDateRange(start, end) {
+            startInput.value = start;
+            endInput.value = end;
+            applyFilter();
             highlightActiveFilter();
         }
-    </script>
+
+        function applyFilter() {
+            var s = startInput.value, e = endInput.value;
+            if (s && e) {
+                window.location = '@Url.Action("Dashboard", "SuperAdmin")' + '?start=' + s + '&end=' + e;
+            }
+        }
+
+        function highlightActiveFilter() {
+            var start = new Date(startInput.value);
+            var end = new Date(endInput.value);
+            var now = new Date();
+            var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            document.querySelectorAll('.quick-filter-btn').forEach(function(btn) { btn.classList.remove('active'); });
+
+            var m = null;
+            if (start.getTime() === today.getTime() && end.getTime() === today.getTime()) m = 'today';
+            if (!m) { var ws = new Date(today); ws.setDate(today.getDate() - today.getDay()); if (start.getTime() === ws.getTime() && end.getTime() === today.getTime()) m = 'week'; }
+            if (!m) { var ms = new Date(now.getFullYear(), now.getMonth(), 1); if (start.getTime() === ms.getTime() && end.getTime() === today.getTime()) m = 'month'; }
+            if (!m) { var ys = new Date(now.getFullYear(), 0, 1); if (start.getTime() === ys.getTime() && end.getTime() === today.getTime()) m = 'year'; }
+
+            if (m) { var b = document.querySelector('.quick-filter-btn[data-range="' + m + '"]'); if (b) b.classList.add('active'); }
+        }
+
+        document.querySelectorAll('.quick-filter-btn[data-range]').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var range = this.getAttribute('data-range');
+                var now = new Date();
+                var start, end = now;
+
+                if (range === 'today') { start = new Date(now.getFullYear(), now.getMonth(), now.getDate()); end = new Date(now.getFullYear(), now.getMonth(), now.getDate()); }
+                else if (range === 'week') { var ws = new Date(now); ws.setDate(now.getDate() - now.getDay()); start = ws; }
+                else if (range === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1); }
+                else if (range === 'year') { start = new Date(now.getFullYear(), 0, 1); }
+
+                setDateRange(start.toISOString().split('T')[0], end.toISOString().split('T')[0]);
+            });
+        });
+
+        startInput.addEventListener('change', applyFilter);
+        endInput.addEventListener('change', applyFilter);
+
+        highlightActiveFilter();
+    }
+</script>
