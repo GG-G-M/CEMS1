@@ -266,6 +266,23 @@ using (var scope = app.Services.CreateScope())
         await context.SaveChangesAsync();
         Console.WriteLine("=== Profile Seeding Complete ===");
 
+        // Seed default fuel prices if none exist
+        if (!context.FuelPrices.Any())
+        {
+            context.FuelPrices.AddRange(
+                new FuelPrice { Name = "Unleaded 91",     Description = "Regular Gasoline (91 RON)",  Price = 57.50m, Icon = "bi-droplet-fill",          CssClass = "gasoline",   Unit = "/L", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "Premium 95",      Description = "Premium Gasoline (95 RON)",  Price = 62.75m, Icon = "bi-droplet-fill",          CssClass = "premium",    Unit = "/L", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "High Octane 97+", Description = "High Performance (97+ RON)", Price = 72.30m, Icon = "bi-lightning-charge-fill", CssClass = "highoctane", Unit = "/L", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "Diesel",          Description = "Common for trucks & SUVs",   Price = 51.85m, Icon = "bi-truck",                 CssClass = "diesel",     Unit = "/L", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "Premium Diesel",  Description = "Enhanced diesel fuel",       Price = 56.40m, Icon = "bi-truck",                 CssClass = "diesel",     Unit = "/L", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "Kerosene",        Description = "Industrial & aviation use",  Price = 55.90m, Icon = "bi-fire",                  CssClass = "kerosene",   Unit = "/L", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "LPG (Autogas)",   Description = "Liquefied Petroleum Gas",    Price = 28.50m, Icon = "bi-cloud-fill",            CssClass = "lpg",        Unit = "/kg", UpdatedAt = DateTime.UtcNow },
+                new FuelPrice { Name = "E10 Biofuel",     Description = "Ethanol-blended gasoline",   Price = 55.20m, Icon = "bi-leaf-fill",             CssClass = "bio",        Unit = "/L", UpdatedAt = DateTime.UtcNow }
+            );
+            await context.SaveChangesAsync();
+            Console.WriteLine("=== Fuel Price Seeding Complete ===");
+        }
+
         Console.WriteLine("Test credentials:");
         Console.WriteLine("superadmin@expense.com / Test@123");
         Console.WriteLine("ceo@expense.com / Test@123");

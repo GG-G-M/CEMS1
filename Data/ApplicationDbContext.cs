@@ -27,6 +27,7 @@ namespace CEMS.Data
         public DbSet<ReimbursementPayment> ReimbursementPayments { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<FuelPrice> FuelPrices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -132,6 +133,10 @@ namespace CEMS.Data
 
             builder.Entity<ReimbursementPayment>()
                 .Property(p => p.Amount)
+                .HasPrecision(18, 2);
+
+            builder.Entity<FuelPrice>()
+                .Property(f => f.Price)
                 .HasPrecision(18, 2);
         }
     }

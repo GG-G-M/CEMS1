@@ -42,14 +42,15 @@
             <img src="@(Url.Content("~/images/logo.png"))" alt="CEMS" class="driver-topbar-logo-img" />
         </a>
 
-        <!-- Breadcrumbs/Title (left side desktop) -->
-        <div class="d-none d-md-flex align-items-center" style="margin-left: 20px; gap: 8px; font-size: 0.9rem; color: #475569;">
-            <i class="bi bi-house-door" style="color: #0288d1;"></i>
-            <span style="font-weight: 600; color: #1e293b;">@(ViewData["Title"] ?? "Manager")</span>
-        </div>
-
-        <!-- Spacer for desktop -->
-        <div class="d-none d-md-flex flex-grow-1"></div>
+        <!-- Breadcrumb Navigation (desktop) -->
+        <nav class="topbar-breadcrumb d-none d-md-flex" aria-label="breadcrumb">
+            <a class="breadcrumb-link" asp-controller="Manager" asp-action="Dashboard">
+                <i class="bi bi-house-door-fill"></i>
+                <span>Home</span>
+            </a>
+            <i class="bi bi-chevron-right breadcrumb-sep"></i>
+            <span class="breadcrumb-current">@pageTitle</span>
+        </nav>
 
         <!-- Date Display (beside profile) -->
         <div class="d-none d-md-flex align-items-center me-3" style="gap: 8px; font-size: 0.85rem; color: #64748b;">

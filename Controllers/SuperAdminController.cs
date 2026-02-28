@@ -756,6 +756,113 @@ namespace CEMS.Controllers
         {
             return RedirectToAction("Dashboard");
         }
+
+        // ───────────── Fuel Price Management ─────────────
+        public async Task<IActionResult> FuelPrices()
+        {
+            var prices = await _db.FuelPrices.OrderBy(f => f.Name).ToListAsync();
+            ViewBag.FuelPrices = prices;
+            return View("FuelPrices/Index");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CreateFuelPrice(string name, string description, decimal price, string unit, string icon, string cssClass)
+        {
+            if (string.IsNullOrWhiteSpace(name) || price <= 0)
+            {
+                TempData["Error"] = "Fuel name and a valid price are required.";
+                return RedirectToAction("FuelPrices");
+            }
+
+            var fuelPrice = new FuelPrice
+            {
+                Name = name.Trim(),
+                Description = (description ?? "").Trim(),
+                Price = price,
+                Unit = string.IsNullOrWhiteSpace(unit) ? "/L" : unit.Trim(),
+                Icon = string.IsNullOrWhiteSpace(icon) ? "bi-droplet-fill" : icon.Trim(),
+                CssClass = string.IsNullOrWhiteSpace(cssClass) ? "gasoline" : cssClass.Trim(),
+                UpdatedAt = DateTime.UtcNow,
+                UpdatedByUserId = _userManager.GetUserId(User)
+            };
+
+            _db.FuelPrices.Add(fuelPrice);
+
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Action = "CreateFuelPrice",
+                Module = "Fuel Prices",
+                Role = "SuperAdmin",
+                PerformedByUserId = _userManager.GetUserId(User),
+                Details = $"Added fuel type '{name}' at ₱{price:N2}"
+            });
+
+            await _db.SaveChangesAsync();
+            TempData["Success"] = $"Fuel type '{name}' added at ₱{price:N2}.";
+            return RedirectToAction("FuelPrices");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateFuelPrice(int id, string name, string description, decimal price, string unit, string icon, string cssClass)
+        {
+            var fuelPrice = await _db.FuelPrices.FindAsync(id);
+            if (fuelPrice == null) return NotFound();
+
+            if (string.IsNullOrWhiteSpace(name) || price <= 0)
+            {
+                TempData["Error"] = "Fuel name and a valid price are required.";
+                return RedirectToAction("FuelPrices");
+            }
+
+            var oldPrice = fuelPrice.Price;
+            fuelPrice.Name = name.Trim();
+            fuelPrice.Description = (description ?? "").Trim();
+            fuelPrice.Price = price;
+            fuelPrice.Unit = string.IsNullOrWhiteSpace(unit) ? "/L" : unit.Trim();
+            fuelPrice.Icon = string.IsNullOrWhiteSpace(icon) ? "bi-droplet-fill" : icon.Trim();
+            fuelPrice.CssClass = string.IsNullOrWhiteSpace(cssClass) ? "gasoline" : cssClass.Trim();
+            fuelPrice.UpdatedAt = DateTime.UtcNow;
+            fuelPrice.UpdatedByUserId = _userManager.GetUserId(User);
+
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Action = "UpdateFuelPrice",
+                Module = "Fuel Prices",
+                Role = "SuperAdmin",
+                PerformedByUserId = _userManager.GetUserId(User),
+                Details = $"Updated '{name}' price from ₱{oldPrice:N2} to ₱{price:N2}"
+            });
+
+            await _db.SaveChangesAsync();
+            TempData["Success"] = $"Fuel type '{name}' updated to ₱{price:N2}.";
+            return RedirectToAction("FuelPrices");
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> DeleteFuelPrice(int id)
+        {
+            var fuelPrice = await _db.FuelPrices.FindAsync(id);
+            if (fuelPrice == null) return NotFound();
+
+            var name = fuelPrice.Name;
+            _db.FuelPrices.Remove(fuelPrice);
+
+            _db.AuditLogs.Add(new AuditLog
+            {
+                Action = "DeleteFuelPrice",
+                Module = "Fuel Prices",
+                Role = "SuperAdmin",
+                PerformedByUserId = _userManager.GetUserId(User),
+                Details = $"Deleted fuel type '{name}'"
+            });
+
+            await _db.SaveChangesAsync();
+            TempData["Success"] = $"Fuel type '{name}' has been deleted.";
+            return RedirectToAction("FuelPrices");
+        }
     }
 
     // DTO for user listing

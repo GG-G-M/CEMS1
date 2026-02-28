@@ -12,741 +12,426 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - CEMS</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --primary-green: #2ec4b6;
-            --secondary-green: #20c997;
-            --dark-green: #0d8b7d;
-            --accent-blue: #1a6bb5;
-            --light-bg: #f8fafc;
-            --white: #ffffff;
-            --gray-light: #e9ecef;
-            --gray: #6c757d;
-            --gray-dark: #343a40;
+            --primary: #2ec4b6;
+            --primary-dark: #0d8b7d;
+            --accent: #1a6bb5;
+            --accent-dark: #12507d;
+            --surface: #ffffff;
+            --bg: #f0f7fa;
+            --text: #0f1724;
+            --text-muted: #5a6a7a;
+            --border: #e2e8f0;
+            --danger: #ef4444;
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html, body {
-            height: 100%;
-            width: 100%;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+            height: 100%; width: 100%;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
+        body { background: var(--bg); overflow-x: hidden; }
+
+        /* ── Animated background ── */
+        .bg-grid {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image: radial-gradient(circle at 1px 1px, rgba(26,107,181,.07) 1px, transparent 0);
+            background-size: 40px 40px;
+        }
+        .bg-glow {
+            position: fixed; z-index: 0; pointer-events: none; border-radius: 50%;
+            filter: blur(100px); opacity: .45;
+        }
+        .bg-glow--1 { width: 600px; height: 600px; top: -10%; left: -5%; background: rgba(46,196,182,.3); animation: glow-drift 18s ease-in-out infinite alternate; }
+        .bg-glow--2 { width: 500px; height: 500px; bottom: -8%; right: -5%; background: rgba(26,107,181,.25); animation: glow-drift 22s ease-in-out infinite alternate-reverse; }
+        .bg-glow--3 { width: 350px; height: 350px; top: 40%; left: 55%; background: rgba(46,196,182,.15); animation: glow-drift 15s ease-in-out infinite alternate; }
+
+        @@keyframes glow-drift {
+            0%   { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(60px, -40px) scale(1.15); }
+        }
+
+        /* ── Layout ── */
         .login-page {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: row;
-            overflow: hidden;
-            position: relative;
+            position: relative; z-index: 1;
+            min-height: 100vh; display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
         }
 
-        /* Left Panel - Wave Pattern */
-        .wave-panel {
-            flex: 1;
-            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--primary-green) 100%);
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 0 60px;
+        /* ── Left Panel ── */
+        .brand-panel {
+            display: flex; flex-direction: column; justify-content: center;
+            padding: 60px clamp(40px, 5vw, 80px);
+            position: relative; min-height: 100vh;
         }
 
-        .wave-pattern {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            overflow: hidden;
+        .brand-panel > * {
+            opacity: 0; transform: translateY(24px);
+            animation: fadeUp .6s ease forwards;
         }
+        .brand-panel > *:nth-child(1) { animation-delay: .1s; }
+        .brand-panel > *:nth-child(2) { animation-delay: .2s; }
+        .brand-panel > *:nth-child(3) { animation-delay: .35s; }
+        .brand-panel > *:nth-child(4) { animation-delay: .5s; }
+        .brand-panel > *:nth-child(5) { animation-delay: .65s; }
 
-        .wave {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 45%;
-            animation: wave 15s infinite linear;
+        @@keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+        .brand-logo {
+            display: flex; align-items: center; gap: 10px;
+            font-weight: 800; font-size: 1.6rem; margin-bottom: 48px;
+            text-decoration: none;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-
-        .wave-1 {
-            width: 600px;
-            height: 600px;
-            top: -100px;
-            left: -100px;
-            animation-delay: 0s;
-        }
-
-        .wave-2 {
-            width: 500px;
-            height: 500px;
-            bottom: -100px;
-            right: -50px;
-            animation-delay: 5s;
-            opacity: 0.7;
-        }
-
-        .wave-3 {
-            width: 400px;
-            height: 400px;
-            top: 50%;
-            left: 30%;
-            animation-delay: 10s;
-            opacity: 0.5;
-        }
-
-        @@keyframes wave {
-            0% {
-                transform: rotate(0deg);
-            }
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .wave-content {
-            position: relative;
-            z-index: 2;
-            color: white;
-            max-width: 500px;
-            word-wrap: break-word;
-        }
-
-        .wave-title {
-            font-size: 3.5rem;
-            font-weight: 800;
-            margin-bottom: 25px;
-            line-height: 1.2;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .wave-subtitle {
+        .brand-logo i {
             font-size: 1.4rem;
-            opacity: 0.95;
-            line-height: 1.6;
-            margin-bottom: 40px;
-            font-weight: 300;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .brand-img {
+            width: 56px; height: 56px; object-fit: contain; border-radius: 8px;
+            display: inline-block; vertical-align: middle;
         }
 
-        .wave-divider {
-            width: 80px;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.3);
-            margin: 40px 0;
-            border-radius: 2px;
+        .brand-title {
+            font-size: clamp(2rem, 3.5vw, 2.8rem); font-weight: 800;
+            line-height: 1.2; color: var(--text); margin-bottom: 16px;
+        }
+        .brand-title span {
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
 
-        .wave-features {
-            margin-top: 50px;
+        .brand-sub {
+            font-size: 1.05rem; color: var(--text-muted);
+            line-height: 1.7; max-width: 440px; margin-bottom: 40px;
         }
 
-        .wave-feature {
-            display: flex;
-            align-items: center;
-            margin-bottom: 25px;
+        /* Feature pills */
+        .feature-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 40px; }
+        .feature-item {
+            display: flex; align-items: center; gap: 14px;
+            opacity: 0; transform: translateX(-16px);
+            animation: slideRight .5s ease forwards;
         }
+        .feature-item:nth-child(1) { animation-delay: .6s; }
+        .feature-item:nth-child(2) { animation-delay: .75s; }
+        .feature-item:nth-child(3) { animation-delay: .9s; }
+        .feature-item:nth-child(4) { animation-delay: 1.05s; }
 
-        .wave-icon {
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 15px;
-            font-size: 1.2rem;
-            flex-shrink: 0;
+        @@keyframes slideRight { to { opacity: 1; transform: translateX(0); } }
+
+        .feature-icon {
+            width: 42px; height: 42px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .95rem; flex-shrink: 0;
         }
+        .feature-icon--blue  { background: rgba(26,107,181,.1); color: var(--accent); }
+        .feature-icon--green { background: rgba(46,196,182,.12); color: var(--primary-dark); }
+        .feature-icon--amber { background: rgba(245,158,11,.1); color: #d97706; }
+        .feature-icon--rose  { background: rgba(239,68,68,.08); color: #ef4444; }
 
-        .wave-text {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            word-wrap: break-word;
+        .feature-text { font-size: .92rem; color: var(--text); font-weight: 500; }
+        .feature-text small { display: block; font-size: .78rem; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+
+        /* Trust bar */
+        .trust-bar {
+            display: flex; gap: 32px; padding-top: 32px;
+            border-top: 1px solid var(--border);
         }
+        .trust-stat strong {
+            font-size: 1.4rem; font-weight: 800; color: var(--text);
+            display: flex; align-items: baseline; gap: 3px;
+        }
+        .trust-stat strong span { font-size: .75rem; color: var(--primary); font-weight: 700; }
+        .trust-stat small { font-size: .78rem; color: var(--text-muted); }
 
-        /* Right Panel - Login Form */
+        /* ── Right Panel — Form ── */
         .form-panel {
-            flex: 1;
-            padding: 40px 20px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            background: var(--white);
-            position: relative;
-            overflow-y: auto;
+            display: flex; align-items: center; justify-content: center;
+            padding: 40px clamp(24px, 4vw, 60px);
+            min-height: 100vh;
         }
 
-        .form-container {
-            max-width: 500px;
-            width: 100%;
-            margin: 0 auto;
+        .form-card {
+            width: 100%; max-width: 560px;
+            background: rgba(255,255,255,.82);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(26,107,181,.1);
+            border-radius: 24px; padding: 52px 48px;
+            box-shadow: 0 20px 60px rgba(15,23,36,.08), 0 1px 3px rgba(15,23,36,.04);
+            opacity: 0; transform: translateY(30px) scale(.97);
+            animation: cardIn .7s ease .3s forwards;
         }
+        @@keyframes cardIn { to { opacity: 1; transform: translateY(0) scale(1); } }
 
-        .form-header {
-            margin-bottom: 30px;
-            text-align: center;
+        .form-header { text-align: center; margin-bottom: 36px; }
+
+        .form-avatar {
+            width: 100px; height: 100px; border-radius: 20px; margin: 0 auto 20px;
+            background: transparent;
+            display: flex; align-items: center; justify-content: center;
         }
+        .form-avatar img { width: 100%; height: 100%; object-fit: contain; border-radius: 16px; }
 
         .form-title {
-            font-size: 2.2rem;
-            font-weight: 700;
-            color: var(--gray-dark);
-            margin-bottom: 8px;
+            font-size: 1.75rem; font-weight: 700; color: var(--text); margin-bottom: 8px;
         }
-
         .form-subtitle {
-            color: var(--gray);
-            font-size: 0.95rem;
-            font-weight: 400;
+            font-size: .95rem; color: var(--text-muted); font-weight: 400;
         }
 
-        /* Temporary credentials panel (remove before production) */
-        .temp-credentials {
-            background: linear-gradient(135deg, rgba(46, 196, 182, 0.08) 0%, rgba(26, 107, 181, 0.08) 100%);
-            border: 2px solid var(--gray-light);
-            border-left: 4px solid var(--primary-green);
-            padding: 14px 16px;
-            border-radius: 8px;
-            color: var(--gray-dark);
-            font-size: 0.9rem;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 6px rgba(10,25,47,0.04);
+        /* Inputs */
+        .input-group {
+            margin-bottom: 26px;
+        }
+        .input-label {
+            display: block; font-size: .9rem; font-weight: 600;
+            color: var(--text); margin-bottom: 10px;
+        }
+        .input-wrap {
+            position: relative; display: flex; align-items: center;
+        }
+        .input-wrap i.input-icon {
+            position: absolute; left: 16px;
+            font-size: 1rem; color: var(--text-muted);
+            pointer-events: none; transition: color .25s;
+        }
+        .input-wrap input {
+            width: 100%; padding: 16px 16px 16px 46px;
+            border: 1.5px solid var(--border); border-radius: 12px;
+            font-size: 1rem; background: var(--surface);
+            transition: border-color .25s, box-shadow .25s;
+            color: var(--text);
+        }
+        .input-wrap input:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(46,196,182,.1);
+        }
+        .input-wrap input:focus ~ i.input-icon,
+        .input-wrap input:focus + .pw-toggle ~ i.input-icon { color: var(--primary); }
+
+        .pw-toggle {
+            position: absolute; right: 14px; background: none; border: none;
+            cursor: pointer; color: var(--text-muted); font-size: .95rem;
+            padding: 4px; transition: color .2s;
+        }
+        .pw-toggle:hover { color: var(--accent); }
+
+        .input-wrap input[type="password"],
+        .input-wrap input.pw-field {
+            padding-right: 48px;
         }
 
-        .temp-credentials .cred-title {
-            font-weight: 700;
-            margin-bottom: 10px;
-            color: var(--accent-blue);
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        /* Validation */
+        .validation-summary-errors {
+            background: rgba(239,68,68,.06); color: var(--danger);
+            padding: 12px 16px; border-radius: 10px; margin-bottom: 20px;
+            border: 1px solid rgba(239,68,68,.15); font-size: .88rem;
+        }
+        .field-validation-error {
+            color: var(--danger); font-size: .8rem; margin-top: 6px; display: block;
         }
 
-        .temp-credentials .cred-title::before {
-            content: "ℹ️";
-            font-size: 1rem;
-        }
-
-        .temp-credentials ul {
-            margin-bottom: 10px;
-        }
-
-        .temp-credentials li {
-            margin-bottom: 6px;
-            padding: 4px 0;
-        }
-
-        .temp-credentials code {
-            background: rgba(255,255,255,0.6);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.85rem;
-            color: var(--gray-dark);
-            font-family: 'Courier New', monospace;
-        }
-
-        .temp-credentials .cred-note {
-            font-size: 0.75rem;
-            color: var(--gray);
-            font-style: italic;
-            padding-top: 8px;
-            border-top: 1px solid rgba(0,0,0,0.1);
-            margin-top: 8px;
-        }
-
-        .form-group {
-            margin-bottom: 30px;
-        }
-
-        .form-label {
-            display: block;
-            font-weight: 500;
-            color: var(--gray-dark);
-            margin-bottom: 10px;
-            font-size: 1rem;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 16px 18px;
-            border: 2px solid var(--gray-light);
-            border-radius: 12px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            background: white;
-        }
-
-        .form-input:focus { 
-            outline: none;
-            border-color: var(--primary-green);
-            box-shadow: 0 0 0 4px rgba(46, 196, 182, 0.1);
-        }
-
+        /* Submit button */
         .btn-signin {
-            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--primary-green) 100%);
-            color: white;
-            border: none;
-            padding: 18px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            width: 100%;
-            margin-top: 10px;
-            letter-spacing: 0.5px;
+            width: 100%; padding: 16px; border: none; border-radius: 12px;
+            font-size: 1.08rem; font-weight: 700; color: #fff; cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), var(--primary));
+            box-shadow: 0 8px 24px rgba(26,107,181,.2);
+            transition: transform .3s, box-shadow .3s;
+            position: relative; overflow: hidden;
+            margin-top: 8px; letter-spacing: .3px;
         }
-
         .btn-signin:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(26, 107, 181, 0.25);
+            box-shadow: 0 12px 32px rgba(26,107,181,.3);
         }
+        .btn-signin::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+            transform: translateX(-100%); transition: transform .6s;
+        }
+        .btn-signin:hover::after { transform: translateX(100%); }
 
+        .btn-signin i { margin-right: 8px; }
+
+        /* Divider */
         .form-divider {
-            height: 1px;
-            background: var(--gray-light);
-            margin: 40px 0;
-            position: relative;
+            display: flex; align-items: center; gap: 14px;
+            margin: 28px 0; color: var(--text-muted); font-size: .88rem; font-weight: 500;
+        }
+        .form-divider::before, .form-divider::after {
+            content: ''; flex: 1; height: 1px; background: var(--border);
         }
 
-        .form-divider::before {
-            content: 'Or continue with';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            padding: 0 20px;
-            color: var(--gray);
-            font-size: 0.95rem;
-            font-weight: 500;
-        }
-
-        .external-login {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-            flex-wrap: wrap;
-        }
-
+        /* External logins */
+        .external-login { display: flex; gap: 12px; flex-wrap: wrap; }
         .external-btn {
-            flex: 1;
-            min-width: 120px;
-            padding: 14px;
-            border: 2px solid var(--gray-light);
-            border-radius: 12px;
-            background: white;
-            color: var(--gray-dark);
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.95rem;
+            flex: 1; min-width: 120px; padding: 14px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            background: var(--surface); color: var(--text);
+            font-weight: 500; font-size: .92rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: border-color .25s, transform .25s, background .25s;
         }
-
         .external-btn:hover {
-            border-color: var(--primary-green);
-            background: var(--light-bg);
+            border-color: var(--primary); background: rgba(46,196,182,.04);
             transform: translateY(-2px);
         }
 
+        /* Links */
         .form-links {
-            margin-top: 40px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            margin-top: 28px; text-align: center;
+            display: flex; flex-direction: column; gap: 10px;
         }
-
         .form-link {
-            color: var(--accent-blue);
-            text-decoration: none;
-            font-size: 0.95rem;
-            display: inline-block;
-            transition: color 0.2s ease;
-            font-weight: 500;
-            word-wrap: break-word;
+            color: var(--accent); text-decoration: none;
+            font-size: .9rem; font-weight: 500;
+            transition: color .2s;
         }
+        .form-link:hover { color: var(--primary-dark); text-decoration: underline; }
 
-        .form-link:hover {
-            color: var(--primary-green);
-            text-decoration: underline;
+        .back-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            margin-top: 20px; font-size: .9rem; color: var(--text-muted);
+            text-decoration: none; font-weight: 500; transition: color .2s;
         }
+        .back-link:hover { color: var(--accent); }
 
-        .validation-summary-errors {
-            background: #fee;
-            color: #c00;
-            padding: 16px;
-            border-radius: 10px;
-            margin-bottom: 25px;
-            border: 1px solid #fcc;
-            font-size: 0.95rem;
-        }
-
-        .field-validation-error {
-            color: #c00;
-            font-size: 0.875rem;
-            margin-top: 6px;
-            display: block;
-        }
-
-        /* Responsive */
-        @@media (max-width: 1200px) {
-            .form-panel {
-                padding: 60px;
+        /* ── Responsive ── */
+        @@media (max-width: 1024px) {
+            .login-page { grid-template-columns: 1fr; }
+            .brand-panel {
+                display: none;
             }
-
-            .wave-panel {
-                padding: 0 40px;
-            }
-        }
-
-        @@media (max-width: 992px) {
-            .login-page {
-                flex-direction: column-reverse;
-                min-height: auto;
-            }
-
-            .wave-panel {
-                padding: 40px 30px;
-                min-height: 300px;
-                order: 2;
-            }
-
-            .form-panel {
-                padding: 40px 30px;
-                min-height: auto;
-                order: 1;
-            }
-
-            .form-container {
-                max-width: 100%;
-            }
-
-            .wave-title {
-                font-size: 2.4rem;
-            }
-
-            .wave-subtitle {
-                font-size: 1rem;
-            }
-
-            .form-title {
-                font-size: 2rem;
-            }
-
-            .form-subtitle {
-                font-size: 0.95rem;
-            }
-
-            .wave-divider {
-                margin: 25px 0;
-            }
-
-            .wave-features {
-                margin-top: 20px;
-            }
-
-            .wave-feature {
-                margin-bottom: 15px;
-            }
-
-            .external-login {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .external-btn {
-                min-width: 100%;
-            }
-
-            .form-divider::before {
-                font-size: 0.85rem;
-                padding: 0 15px;
-            }
-        }
-
-        @@media (max-width: 768px) {
-            .wave-panel {
-                padding: 30px 20px;
-                min-height: 280px;
-            }
-
-            .form-panel {
-                padding: 30px 20px;
-                min-height: auto;
-            }
-
-            .wave-title {
-                font-size: 1.8rem;
-                margin-bottom: 15px;
-            }
-
-            .wave-subtitle {
-                font-size: 0.9rem;
-                margin-bottom: 15px;
-            }
-
-            .form-title {
-                font-size: 1.6rem;
-                margin-bottom: 8px;
-            }
-
-            .form-subtitle {
-                font-size: 0.85rem;
-            }
-
-            .form-header {
-                margin-bottom: 25px;
-            }
-
-            /* Stack temp credentials under header on small screens */
-            .form-top {
-                flex-direction: column;
-                gap: 12px;
-                align-items: stretch;
-            }
-
-            .temp-credentials {
-                width: 100%;
-            }
-
-            .form-group {
-                margin-bottom: 20px;
-            }
-
-            .form-label {
-                font-size: 0.9rem;
-                margin-bottom: 8px;
-            }
-
-            .form-input {
-                padding: 12px 14px;
-                font-size: 16px;
-            }
-
-            .btn-signin {
-                padding: 14px;
-                font-size: 1rem;
-                margin-top: 5px;
-            }
-
-            .form-divider {
-                margin: 25px 0;
-            }
-
-            .form-divider::before {
-                font-size: 0.75rem;
-                padding: 0 10px;
-            }
-
-            .wave-text {
-                font-size: 0.95rem;
-            }
-
-            .external-btn {
-                padding: 12px;
-                font-size: 0.85rem;
-                gap: 6px;
-                min-width: 100%;
-            }
-
-            .form-links {
-                margin-top: 20px;
-                gap: 8px;
-            }
-
-            .form-link {
-                font-size: 0.85rem;
-                margin: 0;
-            }
-
-            .wave-icon {
-                width: 36px;
-                height: 36px;
-                font-size: 1rem;
-                margin-right: 12px;
-            }
-
-            .wave-divider {
-                width: 60px;
-                margin: 20px 0;
-            }
+            .form-panel { min-height: 100vh; padding: 40px 24px; }
+            .form-card { max-width: 560px; }
         }
 
         @@media (max-width: 576px) {
-            .wave-panel {
-                padding: 25px 16px;
-                min-height: 250px;
-            }
-
-            .form-panel {
-                padding: 25px 16px;
-            }
-
-            .wave-title {
-                font-size: 1.5rem;
-                margin-bottom: 12px;
-            }
-
-            .form-title {
-                font-size: 1.4rem;
-            }
-
-            .wave-subtitle {
-                font-size: 0.85rem;
-                margin-bottom: 15px;
-            }
-
-            .form-header {
-                margin-bottom: 20px;
-            }
-
-            .form-input {
-                font-size: 16px;
-                padding: 12px 14px;
-            }
-
-            .btn-signin {
-                padding: 12px;
-                font-size: 0.95rem;
-            }
-
-            .wave-features {
-                display: none;
-            }
-
-            .external-login {
-                flex-direction: column;
-            }
-
-            .external-btn {
-                font-size: 0.8rem;
-            }
-        }
-
-        @@media (max-width: 400px) {
-            .wave-panel, .form-panel {
-                padding: 20px 12px;
-            }
-
-            .wave-title {
-                font-size: 1.3rem;
-            }
-
-            .form-title {
-                font-size: 1.2rem;
-            }
-
-            .wave-subtitle {
-                font-size: 0.8rem;
-            }
-
-            .form-subtitle {
-                font-size: 0.8rem;
-            }
-
-            .form-label {
-                font-size: 0.85rem;
-            }
-
-            .form-input {
-                padding: 10px 12px;
-                font-size: 16px;
-            }
-
-            .btn-signin {
-                padding: 10px;
-                font-size: 0.9rem;
-            }
+            .form-panel { padding: 24px 16px; }
+            .form-card { padding: 32px 24px; border-radius: 18px; }
+            .form-title { font-size: 1.3rem; }
+            .input-wrap input { padding: 12px 12px 12px 38px; font-size: 16px; }
+            .btn-signin { padding: 13px; font-size: .95rem; }
+            .external-login { flex-direction: column; }
+            .external-btn { min-width: 100%; }
         }
     </style>
 </head>
 <body>
+    <!-- Background effects -->
+    <div class="bg-grid"></div>
+    <div class="bg-glow bg-glow--1"></div>
+    <div class="bg-glow bg-glow--2"></div>
+    <div class="bg-glow bg-glow--3"></div>
+
     <div class="login-page">
-        <!-- Left Panel - Wave Pattern -->
-        <div class="wave-panel">
-            <div class="wave-pattern">
-                <div class="wave wave-1"></div>
-                <div class="wave wave-2"></div>
-                <div class="wave wave-3"></div>
+        <!-- Left Panel — Brand / Info -->
+        <div class="brand-panel">
+        <a href="/" class="brand-logo">
+                <img src="/images/logo.png" alt="CEMS logo" class="brand-img" /> CEMS
+            </a>
+
+            <h1 class="brand-title">
+                Welcome Back to<br><span>Expense Management</span>
+            </h1>
+
+            <p class="brand-sub">
+                Sign in to submit, track, and approve expense reports in real time.
+                Smart budget monitoring keeps your company finances on track.
+            </p>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <div class="feature-icon feature-icon--blue"><i class="fas fa-receipt"></i></div>
+                    <div class="feature-text">Quick Submissions<small>Submit expenses with receipt uploads in seconds</small></div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon feature-icon--green"><i class="fas fa-sitemap"></i></div>
+                    <div class="feature-text">Multi-Level Approvals<small>Manager and CEO approval workflows</small></div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon feature-icon--amber"><i class="fas fa-chart-line"></i></div>
+                    <div class="feature-text">Real-Time Analytics<small>Live dashboards with budget monitoring</small></div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon feature-icon--rose"><i class="fas fa-money-bill-transfer"></i></div>
+                    <div class="feature-text">Fast Reimbursements<small>End-to-end payment tracking</small></div>
+                </div>
             </div>
 
-            <div class="wave-content">
-                <h1 class="wave-title">Login Account</h1>
-                <p class="wave-subtitle">
-                    Welcome back! Log in to your dashboard to manage your projects, monitor your performance, and access all the tools and resources you need to stay ahead.
-                </p>
-
-                <div class="wave-divider"></div>
-
-                <div class="wave-features">
-                    <div class="wave-feature">
-                        <div class="wave-icon">
-                            <i class="fas fa-rocket"></i>
-                        </div>
-                        <div class="wave-text">Real-time project management</div>
-                    </div>
-                    <div class="wave-feature">
-                        <div class="wave-icon">
-                            <i class="fas fa-chart-bar"></i>
-                        </div>
-                        <div class="wave-text">Performance analytics dashboard</div>
-                    </div>
-                    <div class="wave-feature">
-                        <div class="wave-icon">
-                            <i class="fas fa-toolbox"></i>
-                        </div>
-                        <div class="wave-text">All tools and resources in one place</div>
-                    </div>
+            <div class="trust-bar">
+                <div class="trust-stat">
+                    <strong>98<span>%</span></strong>
+                    <small>Faster Approvals</small>
+                </div>
+                <div class="trust-stat">
+                    <strong>₱2.4<span>M+</span></strong>
+                    <small>Tracked</small>
+                </div>
+                <div class="trust-stat">
+                    <strong>5<span>Roles</span></strong>
+                    <small>Access Levels</small>
                 </div>
             </div>
         </div>
 
-        <!-- Right Panel - Login Form -->
+        <!-- Right Panel — Login Form -->
         <div class="form-panel">
-            <div class="form-container">
+            <div class="form-card">
                 <div class="form-header">
+                    <div class="form-avatar">
+                        <img src="/images/logo.png" alt="CEMS logo" />
+                    </div>
                     <h2 class="form-title">Sign in to CEMS</h2>
-                    <p class="form-subtitle">Enter your credentials to access your dashboard</p>
+                    <p class="form-subtitle">Enter your credentials to continue</p>
                 </div>
-
-                <!-- Demo credentials removed for production -->
 
                 <form id="account" method="post">
                     <div asp-validation-summary="ModelOnly" class="validation-summary-errors" role="alert"></div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="Input_Email">Enter Email:</label>
-                        <input asp-for="Input.Email" class="form-input" autocomplete="username"
-                               aria-required="true" placeholder="name@example.com" />
+                    <div class="input-group">
+                        <label class="input-label" for="Input_Email">Email Address</label>
+                        <div class="input-wrap">
+                            <input asp-for="Input.Email" autocomplete="username"
+                                   aria-required="true" placeholder="name&#64;example.com" />
+                            <i class="fas fa-envelope input-icon"></i>
+                        </div>
                         <span asp-validation-for="Input.Email" class="field-validation-error"></span>
                     </div>
 
-                    <div class="form-group">
-                        <label class="form-label" for="Input_Password">Enter password:</label>
-                        <input asp-for="Input.Password" class="form-input" autocomplete="current-password"
-                               aria-required="true" placeholder="••••••••" />
+                    <div class="input-group">
+                        <label class="input-label" for="Input_Password">Password</label>
+                        <div class="input-wrap">
+                            <input asp-for="Input.Password" class="pw-field" autocomplete="current-password"
+                                   aria-required="true" placeholder="••••••••" />
+                            <button type="button" class="pw-toggle" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <i class="fas fa-lock input-icon"></i>
+                        </div>
                         <span asp-validation-for="Input.Password" class="field-validation-error"></span>
                     </div>
 
-                    <button id="login-submit" type="submit" class="btn-signin">Sign in</button>
-
-                    <div class="form-divider"></div>
+                    <button id="login-submit" type="submit" class="btn-signin">
+                        <i class="fas fa-arrow-right-to-bracket"></i> Sign In
+                    </button>
 
                     @if ((Model.ExternalLogins?.Count ?? 0) > 0)
                     {
+                        <div class="form-divider">or continue with</div>
+
                         <div class="external-login">
                             @foreach (var provider in Model.ExternalLogins!)
                             {
@@ -762,7 +447,6 @@
 
                     <div class="form-links">
                         <a id="forgot-password" asp-page="./ForgotPassword" class="form-link">Forgot your password?</a>
-                        @* Registration disabled: link removed *@
                         <a id="resend-confirmation" asp-page="./ResendEmailConfirmation" class="form-link">Resend email confirmation</a>
                     </div>
                 </form>
@@ -772,48 +456,45 @@
                     <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" style="display: none;">
                     </form>
                 }
+
+                <div style="text-align: center;">
+                    <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back to Home</a>
+                </div>
             </div>
         </div>
     </div>
 
     @section Scripts {
         <partial name="_ValidationScriptsPartial" />
+    }
 
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                // Form input focus effects
-                const inputs = document.querySelectorAll('.form-input');
-                inputs.forEach(input => {
-                    input.addEventListener('focus', function() {
-                        this.style.borderColor = 'var(--primary-green)';
-                    });
-
-                    input.addEventListener('blur', function() {
-                        if (!this.value) {
-                            this.style.borderColor = 'var(--gray-light)';
-                        }
-                    });
-                });
-
-                // Button hover effects
-                const signinBtn = document.querySelector('.btn-signin');
-                if (signinBtn) {
-                    signinBtn.addEventListener('mouseenter', function() {
-                        this.style.transform = 'translateY(-2px)';
-                    });
-
-                    signinBtn.addEventListener('mouseleave', function() {
-                        this.style.transform = 'translateY(0)';
-                    });
-                }
-
-                // Wave animation
-                const waves = document.querySelectorAll('.wave');
-                waves.forEach((wave, index) => {
-                    wave.style.animationDuration = `${15 + index * 2}s`;
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Password visibility toggle
+            document.querySelectorAll('.pw-toggle').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var input = this.closest('.input-wrap').querySelector('input');
+                    var icon = this.querySelector('i');
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        icon.classList.replace('fa-eye', 'fa-eye-slash');
+                    } else {
+                        input.type = 'password';
+                        icon.classList.replace('fa-eye-slash', 'fa-eye');
+                    }
                 });
             });
-        </script>
-    }
+
+            // Floating label effect — move icon color on filled inputs
+            document.querySelectorAll('.input-wrap input').forEach(function (input) {
+                input.addEventListener('input', function () {
+                    var icon = this.closest('.input-wrap').querySelector('.input-icon');
+                    if (icon) {
+                        icon.style.color = this.value ? 'var(--primary)' : '';
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
