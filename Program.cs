@@ -50,6 +50,18 @@ builder.Services.AddScoped<NotificationService>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
+// AWS S3 configuration – when BucketName is set, use real S3; otherwise fall back to DB storage
+var awsBucket = builder.Configuration["AWS:BucketName"] ?? "";
+if (!string.IsNullOrWhiteSpace(awsBucket))
+{
+    builder.Services.AddSingleton<IS3StorageService, S3StorageService>();
+}
+else
+{
+    builder.Services.AddSingleton<IS3StorageService, NoopS3StorageService>();
+    Console.WriteLine("WARNING: AWS:BucketName is not configured. Receipts will be stored in the database. Set AWS:BucketName, AWS:AccessKey and AWS:SecretKey to enable S3 storage.");
+}
+
 // PayMongo configuration
 builder.Services.Configure<PayMongoOptions>(builder.Configuration.GetSection("PayMongo"));
 var paymongoKey = builder.Configuration["PayMongo:SecretKey"] ?? "";

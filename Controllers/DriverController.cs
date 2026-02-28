@@ -21,12 +21,14 @@ namespace CEMS.Controllers
         private readonly Data.ApplicationDbContext _db;
         private readonly UserManager<IdentityUser> _userManager;
         private readonly NotificationService _notificationService;
+        private readonly IS3StorageService _s3Service;
 
-        public DriverController(Data.ApplicationDbContext db, UserManager<IdentityUser> userManager, NotificationService notificationService)
+        public DriverController(Data.ApplicationDbContext db, UserManager<IdentityUser> userManager, NotificationService notificationService, IS3StorageService s3Service)
         {
             _db = db;
             _userManager = userManager;
             _notificationService = notificationService;
+            _s3Service = s3Service;
         }
         [HttpGet("Dashboard")]
         public async Task<IActionResult> Dashboard()
@@ -293,11 +295,22 @@ namespace CEMS.Controllers
                 var file = Request.Form.Files.FirstOrDefault(f => f.Name == prefix + ".Receipt");
                 if (file != null && file.Length > 0)
                 {
-                    using var ms = new MemoryStream();
-                    await file.CopyToAsync(ms);
-                    item.ReceiptData = ms.ToArray();
-                    item.ReceiptContentType = file.ContentType;
-                    item.ReceiptPath = null;
+                    if (_s3Service.IsEnabled)
+                    {
+                        using var stream = file.OpenReadStream();
+                        var s3Key = await _s3Service.UploadFileAsync(stream, file.FileName, file.ContentType);
+                        item.ReceiptPath = s3Key;
+                        item.ReceiptContentType = file.ContentType;
+                        item.ReceiptData = null;
+                    }
+                    else
+                    {
+                        using var ms = new MemoryStream();
+                        await file.CopyToAsync(ms);
+                        item.ReceiptData = ms.ToArray();
+                        item.ReceiptContentType = file.ContentType;
+                        item.ReceiptPath = null;
+                    }
                 }
 
                 updatedItems.Add(item);
@@ -440,14 +453,24 @@ namespace CEMS.Controllers
 
                 if (receipt != null && receipt.Length > 0)
                 {
-                    using (var ms = new MemoryStream())
+                    if (_s3Service.IsEnabled)
                     {
-                        await receipt.CopyToAsync(ms);
-                        model.ReceiptData = ms.ToArray();
+                        using var stream = receipt.OpenReadStream();
+                        var s3Key = await _s3Service.UploadFileAsync(stream, receipt.FileName, receipt.ContentType);
+                        model.ReceiptPath = s3Key;
+                        model.ReceiptContentType = receipt.ContentType;
+                        model.ReceiptData = null;
                     }
-                    model.ReceiptContentType = receipt.ContentType;
-                    // Keep ReceiptPath null when storing blob in DB
-                    model.ReceiptPath = null;
+                    else
+                    {
+                        using (var ms = new MemoryStream())
+                        {
+                            await receipt.CopyToAsync(ms);
+                            model.ReceiptData = ms.ToArray();
+                        }
+                        model.ReceiptContentType = receipt.ContentType;
+                        model.ReceiptPath = null;
+                    }
                 }
 
                 // Re-validate model after we populated server-only fields so required fields don't fail
@@ -576,10 +599,21 @@ namespace CEMS.Controllers
                     var file = files.FirstOrDefault(f => f.Name == prefix + ".Receipt");
                     if (file != null && file.Length > 0)
                     {
-                        using var ms = new MemoryStream();
-                        await file.CopyToAsync(ms);
-                        expense.ReceiptData = ms.ToArray();
-                        expense.ReceiptContentType = file.ContentType;
+                        if (_s3Service.IsEnabled)
+                        {
+                            using var stream = file.OpenReadStream();
+                            var s3Key = await _s3Service.UploadFileAsync(stream, file.FileName, file.ContentType);
+                            expense.ReceiptPath = s3Key;
+                            expense.ReceiptContentType = file.ContentType;
+                            expense.ReceiptData = null;
+                        }
+                        else
+                        {
+                            using var ms = new MemoryStream();
+                            await file.CopyToAsync(ms);
+                            expense.ReceiptData = ms.ToArray();
+                            expense.ReceiptContentType = file.ContentType;
+                        }
                     }
 
                     items.Add(expense);
@@ -708,7 +742,15 @@ namespace CEMS.Controllers
                     return File(item.ReceiptData, item.ReceiptContentType ?? "application/octet-stream");
 
                 if (!string.IsNullOrEmpty(item.ReceiptPath))
+                {
+                    if (_s3Service.IsEnabled)
+                    {
+                        var url = _s3Service.GetPreSignedUrl(item.ReceiptPath);
+                        if (url != null)
+                            return Redirect(url);
+                    }
                     return Redirect(item.ReceiptPath);
+                }
 
                 return NotFound();
             }
@@ -730,6 +772,12 @@ namespace CEMS.Controllers
 
             if (!string.IsNullOrEmpty(expense.ReceiptPath))
             {
+                if (_s3Service.IsEnabled)
+                {
+                    var url = _s3Service.GetPreSignedUrl(expense.ReceiptPath);
+                    if (url != null)
+                        return Redirect(url);
+                }
                 return Redirect(expense.ReceiptPath);
             }
 
