@@ -1,10 +1,6 @@
 ﻿@{
     ViewData["Title"] = "Driver Dashboard";
     Layout = "~/Views/Shared/_DriverLayout.cshtml";
-    var budgets = ViewBag.Budgets as List<CEMS.Models.Budget> ?? new List<CEMS.Models.Budget>();
-    decimal totalBudget = ViewBag.TotalBudget ?? 0m;
-    decimal totalSpent = ViewBag.TotalSpent ?? 0m;
-    decimal totalRemaining = ViewBag.TotalRemaining ?? 0m;
     var recentReports = ViewBag.RecentReports as List<CEMS.Models.ExpenseReport> ?? new List<CEMS.Models.ExpenseReport>();
 }
 
@@ -122,6 +118,35 @@
                         <td>${item.receiptUrl ? `<a href="${item.receiptUrl}" style="color:#0288d1;">View</a>` : '—'}</td>
                     `;
                     tbody.appendChild(tr);
+                }
+
+                // ✅ DYNAMIC: Render budget list from API data
+                const budgetListContainer = document.getElementById('dynamicBudgetList');
+                budgetListContainer.innerHTML = '';
+                if(data.budgets && data.budgets.length > 0){
+                    for(const b of data.budgets){
+                        const remaining = b.allocated - b.spent;
+                        const pct = b.allocated === 0 ? 0 : Math.round((b.spent / b.allocated) * 100);
+                        const statusClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : '';
+
+                        const div = document.createElement('div');
+                        div.className = 'budget-item';
+                        div.innerHTML = `
+                            <div class="budget-row">
+                                <span class="budget-category">${b.category}</span>
+                                <span class="budget-numbers">₱${Number(b.spent).toLocaleString('en-PH', {minimumFractionDigits: 0})} / ₱${Number(b.allocated).toLocaleString('en-PH', {minimumFractionDigits: 0})}</span>
+                            </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill ${statusClass}" style="width:${Math.min(pct, 100)}%"></div>
+                            </div>
+                            <div class="budget-remaining">
+                                ${remaining >= 0 ? `₱${Number(remaining).toLocaleString('en-PH', {minimumFractionDigits: 0})} remaining` : `₱${Number(Math.abs(remaining)).toLocaleString('en-PH', {minimumFractionDigits: 0})} over`}
+                            </div>
+                        `;
+                        budgetListContainer.appendChild(div);
+                    }
+                } else {
+                    budgetListContainer.innerHTML = '<div style="color:#94a3b8; text-align:center; padding:16px;">No budget data</div>';
                 }
 
                 renderDriverBudgetChart(data.budgets || []);
@@ -862,37 +887,13 @@
                 </div>
             </div>
 
-            <!-- Budget list -->
+            <!-- Budget list - DYNAMIC -->
             <div class="budget-card">
                 <div class="budget-header">
                     <i class="bi bi-pie-chart-fill"></i> Category Budgets
                 </div>
-                <div class="budget-list">
-                    @if (budgets.Any())
-                    {
-                        foreach (var b in budgets)
-                        {
-                            var remaining = b.Allocated - b.Spent;
-                            var pct = b.Allocated == 0 ? 0 : (int)Math.Round((double)(b.Spent / b.Allocated * 100));
-                            <div class="budget-item">
-                                <div class="budget-row">
-                                    <span class="budget-category">@b.Category</span>
-                                    <span class="budget-numbers">₱@b.Spent.ToString("N0") / ₱@b.Allocated.ToString("N0")</span>
-                                </div>
-                                <div class="progress-bar">
-                                    <div class="progress-fill @(pct >= 100 ? "danger" : pct >= 80 ? "warning" : "")"
-                                         style="width:@Math.Min(pct, 100)%"></div>
-                                </div>
-                                <div class="budget-remaining">
-                                    @(remaining >= 0 ? $"₱{remaining:N0} remaining" : $"₱{Math.Abs(remaining):N0} over")
-                                </div>
-                            </div>
-                        }
-                    }
-                    else
-                    {
-                        <div style="color:#94a3b8; text-align:center; padding:16px;">No budget data</div>
-                    }
+                <div class="budget-list" id="dynamicBudgetList">
+                    <div style="color:#94a3b8; text-align:center; padding:16px;">Loading budget data...</div>
                 </div>
             </div>
         </div>

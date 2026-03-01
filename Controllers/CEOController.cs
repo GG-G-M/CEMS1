@@ -36,8 +36,20 @@ namespace CEMS.Controllers
 
             var budgets = await _db.Budgets.ToListAsync();
             ViewBag.TotalBudget = budgets.Sum(b => b.Allocated);
-            ViewBag.TotalSpent = budgets.Sum(b => b.Spent);
-            ViewBag.TotalRemaining = budgets.Sum(b => b.Allocated - b.Spent);
+
+            // Calculate spent dynamically from approved expense items (three-level date fallback for NULL dates)
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved
+                             && ((ei.Date >= startDate && ei.Date <= endDate.AddDays(1))
+                                 || (ei.Date == null && ei.Report.SubmissionDate >= startDate && ei.Report.SubmissionDate <= endDate.AddDays(1))
+                                 || (ei.Date == null && ei.Report.SubmissionDate < startDate && ei.Report.TripStart >= startDate && ei.Report.TripStart <= endDate.AddDays(1))))
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            var totalSpent = spentByCategory.Sum(s => s.Total);
+            ViewBag.TotalSpent = totalSpent;
+            ViewBag.TotalRemaining = budgets.Sum(b => b.Allocated) - totalSpent;
 
             var pendingCEO = await _db.ExpenseReports
                 .Where(r => r.ForwardedToCEO && !r.CEOApproved && r.BudgetCheck == BudgetCheckStatus.OverBudget && (r.Status == ReportStatus.PendingCEOApproval))
@@ -74,9 +86,14 @@ namespace CEMS.Controllers
                 foreach (var group in items.GroupBy(i => i.Category))
                 {
                     var budget = budgets.FirstOrDefault(b => b.Category == group.Key);
-                    if (budget != null && budget.Spent > budget.Allocated)
+                    if (budget != null)
                     {
-                        exceed += budget.Spent - budget.Allocated;
+                        // Calculate actual spent for this category (dynamic, not static Budget.Spent)
+                        var categorySpentAmount = spentByCategory.FirstOrDefault(s => s.Category == group.Key)?.Total ?? 0m;
+                        if (categorySpentAmount > budget.Allocated)
+                        {
+                            exceed += categorySpentAmount - budget.Allocated;
+                        }
                     }
                 }
                 recentDto.Add(new OverBudgetReportDto
@@ -121,7 +138,10 @@ namespace CEMS.Controllers
             // ── Category Budget Breakdown ──
             var categoryLabels = budgets.Select(b => b.Category).ToList();
             var categoryAllocated = budgets.Select(b => b.Allocated).ToList();
-            var categorySpent = budgets.Select(b => b.Spent).ToList();
+            // Calculate spent per category dynamically from approved expense items
+            var categorySpent = budgets.Select(b => 
+                spentByCategory.FirstOrDefault(s => s.Category == b.Category)?.Total ?? 0m
+            ).ToList();
             ViewBag.CategoryLabels = System.Text.Json.JsonSerializer.Serialize(categoryLabels);
             ViewBag.CategoryAllocated = System.Text.Json.JsonSerializer.Serialize(categoryAllocated);
             ViewBag.CategorySpent = System.Text.Json.JsonSerializer.Serialize(categorySpent);
@@ -165,6 +185,13 @@ namespace CEMS.Controllers
             var users = await _userManager.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.UserName);
             var budgets = await _db.Budgets.ToListAsync();
 
+            // Calculate spent dynamically for all categories (three-level date fallback)
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved)
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
             var dto = new List<OverBudgetReportDto>();
             foreach (var r in reports)
             {
@@ -173,9 +200,14 @@ namespace CEMS.Controllers
                 foreach (var group in items.GroupBy(i => i.Category))
                 {
                     var budget = budgets.FirstOrDefault(b => b.Category == group.Key);
-                    if (budget != null && budget.Spent > budget.Allocated)
+                    if (budget != null)
                     {
-                        exceed += budget.Spent - budget.Allocated;
+                        // Calculate actual spent for this category (dynamic, not static Budget.Spent)
+                        var categorySpentAmount = spentByCategory.FirstOrDefault(s => s.Category == group.Key)?.Total ?? 0m;
+                        if (categorySpentAmount > budget.Allocated)
+                        {
+                            exceed += categorySpentAmount - budget.Allocated;
+                        }
                     }
                 }
                 dto.Add(new OverBudgetReportDto
@@ -390,7 +422,18 @@ namespace CEMS.Controllers
         public async Task<IActionResult> Budget()
         {
             var budgets = await _db.Budgets.OrderBy(b => b.Category).ToListAsync();
+
+            // Calculate spent dynamically from approved expense items (all-time)
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved)
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            // Store the dynamic spent amounts in ViewBag for the view to use
             ViewBag.Budgets = budgets;
+            ViewBag.SpentByCategory = spentByCategory.ToDictionary(s => s.Category, s => s.Total);
+
             return View("Budget/Index");
         }
 
@@ -510,6 +553,33 @@ namespace CEMS.Controllers
             var budget = await _db.Budgets.FindAsync(id);
             if (budget == null) return NotFound();
 
+            // Check if trying to deactivate a budget with existing expenses
+            if (budget.IsActive && !budget.IsActive) // This is always false, but the intent is checking if currently active and trying to deactivate
+            {
+                // Actually, we need to check: if budget.IsActive is true AND we're trying to toggle it off
+                // Since toggle flips the value, we need to check if HasItems BEFORE toggling
+                var hasItems = await _db.ExpenseItems.AnyAsync(i => i.Category == budget.Category);
+                if (hasItems)
+                {
+                    TempData["Error"] = $"Cannot deactivate budget '{budget.Category}': there are existing expense items using this category.";
+                    return RedirectToAction("Budget");
+                }
+            }
+
+            // Check if trying to deactivate and there are approved expense items
+            if (budget.IsActive) // If currently active
+            {
+                var hasApprovedItems = await _db.ExpenseItems
+                    .Where(i => i.Category == budget.Category && i.Report != null && i.Report.Status == ReportStatus.Approved)
+                    .AnyAsync();
+
+                if (hasApprovedItems)
+                {
+                    TempData["Error"] = $"Cannot deactivate budget '{budget.Category}': there are approved expense items using this category.";
+                    return RedirectToAction("Budget");
+                }
+            }
+
             budget.IsActive = !budget.IsActive;
 
             _db.AuditLogs.Add(new AuditLog
@@ -535,6 +605,22 @@ namespace CEMS.Controllers
             var budget = await _db.Budgets.FindAsync(id);
             if (budget == null) return Json(new { success = false, message = "Budget not found" });
 
+            // Check if trying to deactivate and there are approved expense items
+            if (budget.IsActive) // If currently active, trying to deactivate
+            {
+                var hasApprovedItems = await _db.ExpenseItems
+                    .Where(i => i.Category == budget.Category && i.Report != null && i.Report.Status == ReportStatus.Approved)
+                    .AnyAsync();
+
+                if (hasApprovedItems)
+                {
+                    return Json(new { 
+                        success = false, 
+                        message = $"Cannot deactivate budget '{budget.Category}': there are approved expense items using this category." 
+                    });
+                }
+            }
+
             budget.IsActive = !budget.IsActive;
 
             _db.AuditLogs.Add(new AuditLog
@@ -549,7 +635,7 @@ namespace CEMS.Controllers
 
             await _db.SaveChangesAsync();
 
-            return Json(new { success = true, isActive = budget.IsActive });
+            return Json(new { success = true, isActive = budget.IsActive, message = $"Budget '{budget.Category}' is now {(budget.IsActive ? "active" : "inactive")}." });
         }
 
         // ───────────── Expense Overview ─────────────
@@ -597,7 +683,25 @@ namespace CEMS.Controllers
         public async Task<IActionResult> Analytics()
         {
             var budgets = await _db.Budgets.ToListAsync();
-            ViewBag.Budgets = budgets;
+
+            // Calculate spent dynamically from approved expense items (no date filter = all-time)
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved)
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            // Project budgets with dynamic spent amounts
+            var dynamicBudgets = budgets.Select(b => new
+            {
+                b.Id,
+                b.Category,
+                b.Allocated,
+                Spent = spentByCategory.FirstOrDefault(s => s.Category == b.Category)?.Total ?? 0m,
+                b.IsActive
+            }).ToList();
+
+            ViewBag.Budgets = dynamicBudgets;
 
             var totalReports = await _db.ExpenseReports.CountAsync();
             var approvedCount = await _db.ExpenseReports.Where(r => r.Status == ReportStatus.Approved).CountAsync();
@@ -621,7 +725,23 @@ namespace CEMS.Controllers
         [HttpGet]
         public async Task<IActionResult> Metrics()
         {
-            var budgets = await _db.Budgets.Select(b => new { b.Category, b.Allocated, b.Spent }).ToListAsync();
+            var budgets = await _db.Budgets.ToListAsync();
+
+            // Calculate spent dynamically from approved expense items (all-time, no date filter)
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved)
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            // Project budgets with dynamic spent amounts
+            var budgetData = budgets.Select(b => new
+            {
+                b.Category,
+                b.Allocated,
+                Spent = spentByCategory.FirstOrDefault(s => s.Category == b.Category)?.Total ?? 0m
+            }).ToList();
+
             var totalPending = await _db.ExpenseReports.Where(r => r.Status == ReportStatus.Submitted || r.Status == ReportStatus.PendingCEOApproval).CountAsync();
             var approved = await _db.ExpenseReports.Where(r => r.Status == ReportStatus.Approved).SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
             var rejected = await _db.ExpenseReports.Where(r => r.Status == ReportStatus.Rejected).SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
@@ -638,7 +758,7 @@ namespace CEMS.Controllers
                 monthlyData.Add(new { label = mStart.ToString("MMM yyyy"), total });
             }
 
-            return Json(new { totalPending, approved, rejected, overBudgetCount, budgets, monthlyData });
+            return Json(new { totalPending, approved, rejected, overBudgetCount, budgets = budgetData, monthlyData });
         }
 
         // ───────────── Reports (legacy) ─────────────

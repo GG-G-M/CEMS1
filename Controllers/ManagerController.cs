@@ -55,20 +55,36 @@ namespace CEMS.Controllers
 
             ViewBag.PendingReports = pendingWithUsers;
 
-            // Budget totals (set by CEO)
-            var budgets = await _db.Budgets.ToListAsync();
-            ViewBag.TotalBudget = budgets.Sum(b => b.Allocated);
-            ViewBag.TotalSpent = budgets.Sum(b => b.Spent);
-            ViewBag.TotalRemaining = budgets.Sum(b => b.Allocated - b.Spent);
+            // Budget totals (calculate spent from approved expense items, not static Budget.Spent)
+            var budgets = await _db.Budgets.Where(b => b.IsActive).ToListAsync();
 
-            // Approved today
+            // Calculate actual spent for each category from approved items
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved)
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            decimal totalSpent = 0m;
+            foreach (var budget in budgets)
+            {
+                var spent = spentByCategory.FirstOrDefault(s => s.Category == budget.Category)?.Total ?? 0m;
+                totalSpent += spent;
+            }
+
+            ViewBag.TotalBudget = budgets.Sum(b => b.Allocated);
+            ViewBag.TotalSpent = totalSpent;
+            ViewBag.TotalRemaining = budgets.Sum(b => b.Allocated) - totalSpent;
+
+            // Approved today (dynamically calculated from Approvals table)
             var today = DateTime.UtcNow.Date;
             var approvedToday = await _db.Approvals
                 .Include(a => a.Report)
                 .Where(a => a.Stage == "Manager" && a.Status == ApprovalStatus.Approved && a.DecisionDate.HasValue && a.DecisionDate.Value.Date == today)
+                .Where(a => a.Report != null) // Ensure report is not null
                 .ToListAsync();
             ViewBag.ApprovedTodayCount = approvedToday.Count;
-            ViewBag.ApprovedTodayTotal = approvedToday.Sum(a => a.Report != null ? a.Report.TotalAmount : 0m);
+            ViewBag.ApprovedTodayTotal = approvedToday.Sum(a => a.Report.TotalAmount);
 
             // Active drivers
             var driverUsers = await _userManager.GetUsersInRoleAsync("Driver");
@@ -243,28 +259,27 @@ namespace CEMS.Controllers
                 .Where(r => r.BudgetCheck == BudgetCheckStatus.OverBudget && (r.Status == ReportStatus.Submitted || r.Status == ReportStatus.PendingCEOApproval) && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
                 .CountAsync();
 
-            // Approved by this manager in the date range
+            // Approved by this manager in the date range (dynamically calculated)
             var approvedByManagerRaw = await _db.Approvals
                 .Include(a => a.Report)
                 .Where(a => a.Stage == "Manager" && a.Status == ApprovalStatus.Approved && 
                        a.DecisionDate.HasValue && a.DecisionDate.Value >= start && a.DecisionDate.Value <= end.Value.AddDays(1))
                 .ToListAsync();
-            var approvedTodayCount = approvedByManagerRaw.Count;
-            var approvedTodayTotal = approvedByManagerRaw.Sum(a => a.Report != null ? a.Report.TotalAmount : 0m);
+            // Filter out null reports to ensure accurate calculations
+            var approvedTodayCount = approvedByManagerRaw.Where(a => a.Report != null).Count();
+            var approvedTodayTotal = approvedByManagerRaw.Where(a => a.Report != null).Sum(a => a.Report.TotalAmount);
 
             // Budget per category with spent amounts for the date range (only approved reports)
-            var allBudgets = await _db.Budgets.ToListAsync();
+            // Filter by expense item date (not submission date) so old backfilled data is included
+            var allBudgets = await _db.Budgets.Where(b => b.IsActive).ToListAsync();
 
-            // Get IDs of truly approved reports in the date range (exclude PendingCEOApproval — not yet approved by CEO)
-            var approvedReportIds = await _db.ExpenseReports
-                .Where(r => r.Status == ReportStatus.Approved &&
-                       r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
-                .Select(r => r.Id)
-                .ToListAsync();
-
-            // Sum expense items per category from those approved reports only
+            // Sum expense items per category from approved reports
+            // Use item date if available, fall back to report submission date, then to trip start date for old backfilled data
             var spentByCategory = await _db.ExpenseItems
-                .Where(ei => approvedReportIds.Contains(ei.ReportId))
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved
+                             && ((ei.Date >= start && ei.Date <= end.Value.AddDays(1)) 
+                                 || (ei.Date == null && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
+                                 || (ei.Date == null && ei.Report.SubmissionDate < start && ei.Report.TripStart >= start && ei.Report.TripStart <= end.Value.AddDays(1))))
                 .GroupBy(ei => ei.Category)
                 .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
                 .ToListAsync();
@@ -366,10 +381,12 @@ namespace CEMS.Controllers
                     if (budget != null)
                     {
                         // Calculate spent amount from over-budget reports in the date range
+                        // Use item date if available, fall back to report submission date, then to trip start date for old data
                         var currentSpent = await _db.ExpenseItems
                             .Where(ii => ii.Category == cat && 
-                                         ii.Date >= start && 
-                                         ii.Date <= end.Value.AddDays(1) &&
+                                         ((ii.Date >= start && ii.Date <= end.Value.AddDays(1))
+                                          || (ii.Date == null && ii.Report.SubmissionDate >= start && ii.Report.SubmissionDate <= end.Value.AddDays(1))
+                                          || (ii.Date == null && ii.Report.SubmissionDate < start && ii.Report.TripStart >= start && ii.Report.TripStart <= end.Value.AddDays(1))) &&
                                          (ii.Report.Status == ReportStatus.Submitted || ii.Report.Status == ReportStatus.PendingCEOApproval || ii.Report.Status == ReportStatus.Approved) &&
                                          ii.Report.BudgetCheck == BudgetCheckStatus.OverBudget)
                             .SumAsync(ii => (decimal?)ii.Amount) ?? 0m;
@@ -420,7 +437,22 @@ namespace CEMS.Controllers
 
         public async Task<IActionResult> Budget()
         {
-            var budgets = await _db.Budgets.OrderBy(b => b.Category).ToListAsync();
+            // Load all active budgets
+            var budgets = await _db.Budgets.Where(b => b.IsActive).OrderBy(b => b.Category).ToListAsync();
+
+            // For each budget, calculate actual spending from approved expense items (all time)
+            // This ensures the summary always shows accurate spent amounts
+            foreach (var budget in budgets)
+            {
+                var spent = await _db.ExpenseItems
+                    .Where(ei => ei.Category == budget.Category 
+                                 && ei.Report != null 
+                                 && ei.Report.Status == ReportStatus.Approved)
+                    .SumAsync(ei => (decimal?)ei.Amount) ?? 0m;
+
+                budget.Spent = spent;
+            }
+
             ViewBag.Budgets = budgets;
             return View("Budget/Index");
         }
@@ -508,6 +540,8 @@ namespace CEMS.Controllers
                 TempData["Success"] = "Report approved and sent to Finance for reimbursement.";
             }
 
+            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                return Json(new { success = true, message = TempData["Success"]?.ToString() });
             return RedirectToAction("Reports");
         }
 

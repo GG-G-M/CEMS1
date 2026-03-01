@@ -134,8 +134,24 @@ namespace CEMS.Controllers
                 receiptUrl = i.ReceiptExists ? Url.Action("Receipt", "Driver", new { id = i.Id }) : (string.IsNullOrEmpty(i.ReceiptPath) ? null : i.ReceiptPath)
             }).ToList();
 
-            // Budget data so driver sees limits
-            var budgets = await _db.Budgets.Select(b => new { b.Category, b.Allocated, b.Spent }).ToListAsync();
+            // Calculate spent dynamically from approved expense items (three-level date fallback for NULL dates)
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Report != null && ei.Report.UserId == userId && ei.Report.Status == ReportStatus.Approved
+                             && ((ei.Date >= start && ei.Date <= end.Value.AddDays(1))
+                                 || (ei.Date == null && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
+                                 || (ei.Date == null && ei.Report.SubmissionDate < start && ei.Report.TripStart >= start && ei.Report.TripStart <= end.Value.AddDays(1))))
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            // Get all budgets and merge with spent data
+            var allBudgets = await _db.Budgets.ToListAsync();
+            var budgets = allBudgets.Select(b => new
+            {
+                b.Category,
+                b.Allocated,
+                spent = spentByCategory.FirstOrDefault(s => s.Category == b.Category)?.Total ?? 0m
+            }).ToList();
 
             return Json(new
             {

@@ -310,14 +310,15 @@
                     <label class="form-label">To</label>
                     <input type="date" name="end" id="mgrEnd" class="form-control form-control-sm" value="@Context.Request.Query["end"]" />
                 </div>
+                @{ var statusFilter = Context.Request.Query["status"].ToString(); }
                 <div class="col-md-2">
                     <label class="form-label">Status</label>
                     <select name="status" id="mgrStatus" class="form-select form-select-sm">
                         <option value="">All</option>
-                        <option value="Submitted" selected="@(string.IsNullOrEmpty(Context.Request.Query["status"]) || Context.Request.Query["status"]=="Submitted")">Pending</option>
-                        <option value="PendingCEOApproval" selected="@(Context.Request.Query["status"]=="PendingCEOApproval")">Forwarded</option>
-                        <option value="Approved" selected="@(Context.Request.Query["status"]=="Approved")">Approved</option>
-                        <option value="Rejected" selected="@(Context.Request.Query["status"]=="Rejected")">Rejected</option>
+                        <option value="Submitted" selected="@(string.IsNullOrEmpty(statusFilter) || statusFilter == "Submitted" ? "" : null)">Pending</option>
+                        <option value="PendingCEOApproval" selected="@(statusFilter == "PendingCEOApproval" ? "" : null)">Forwarded</option>
+                        <option value="Approved" selected="@(statusFilter == "Approved" ? "" : null)">Approved</option>
+                        <option value="Rejected" selected="@(statusFilter == "Rejected" ? "" : null)">Rejected</option>
                     </select>
                 </div>
                 <div class="col-md-1" style="display: flex; align-items: flex-end;">
@@ -341,25 +342,7 @@
                     });
                 }
 
-                // Handle approve/reject forms via fetch to show toast without reload
-                document.querySelectorAll('.approve-form, .reject-form').forEach(function(f){
-                    f.addEventListener('submit', async function(e){
-                        e.preventDefault();
-                        var action = f.getAttribute('asp-action') || f.action;
-                        var formData = new FormData(f);
-                        try{
-                            var res = await fetch(f.action, { method: 'POST', body: formData, headers: { 'X-Requested-With':'XMLHttpRequest' } });
-                            var json = await res.json();
-                            // show toast
-                            var t = document.getElementById('actionToast');
-                            var text = document.getElementById('toastText');
-                            var icon = document.getElementById('toastIcon');
-                            if(json.success){ t.classList.add('action-toast--success','show'); text.textContent = json.message || 'Done'; }
-                            else { t.classList.add('action-toast--error','show'); text.textContent = json.message || 'Failed'; }
-                            setTimeout(function(){ t.classList.remove('show','action-toast--success','action-toast--error'); }, 2200);
-                        }catch(err){ console.error(err); }
-                    });
-                });
+                // Approve/reject is handled by the confirmation modal IIFE below
             });
 
             // PDF Export functionality
@@ -590,10 +573,27 @@ document.getElementById('rejectOverlay').addEventListener('click', function(e) {
         });
     });
 
-    confirmOk.addEventListener('click', function () {
+    confirmOk.addEventListener('click', async function () {
         if (pendingForm) {
             overlay.classList.remove('show');
-            pendingForm.submit();
+            try {
+                var formData = new FormData(pendingForm);
+                var res = await fetch(pendingForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                var json = await res.json();
+                if (json.success) {
+                    showToast(json.message || 'Done', false);
+                    setTimeout(function () { location.reload(); }, 1500);
+                } else {
+                    showToast(json.message || 'Failed', true);
+                }
+            } catch (err) {
+                pendingForm.submit();
+            }
+            pendingForm = null;
         }
     });
 

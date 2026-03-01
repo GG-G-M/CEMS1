@@ -293,90 +293,59 @@
             <strong>Note:</strong> Budget allocations are set by the CEO. Use this view to monitor your team's spending against limits.
         </div>
 
-        <!-- Budget Summary Table -->
-        @if (budgets.Any())
-        {
-            <div class="table-card">
-                <div class="table-card-head">
-                    <i class="bi bi-list-check me-2"></i> Budget Summary
-                </div>
-                <div class="table-responsive">
-                    <table class="dash-table">
-                        <thead>
-                            <tr>
-                                <th>Category</th>
-                                <th>Allocated</th>
-                                <th>Spent</th>
-                                <th>Remaining</th>
-                                <th>Usage %</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var b in budgets)
-                            {
-                                var remaining = b.Allocated - b.Spent;
-                                var pct = b.Allocated == 0 ? 0 : (int)Math.Round((double)(b.Spent / b.Allocated * 100));
-                                var barClass = pct >= 100 ? "budget-bar-fill--danger" : pct >= 75 ? "budget-bar-fill--warn" : "budget-bar-fill--ok";
-                                <tr>
-                                    <td class="fw-600">@b.Category</td>
-                                    <td>₱<strong>@b.Allocated.ToString("N2")</strong></td>
-                                    <td>₱<strong>@b.Spent.ToString("N2")</strong></td>
-                                    <td class="@(remaining < 0 ? "fw-bold" : "")">
-                                        <span style="color: @(remaining < 0 ? "#ef4444" : "#0d8b7d");">₱@remaining.ToString("N2")</span>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="budget-bar" style="flex: 1;">
-                                                <div class="budget-bar-fill @barClass" style="width:@Math.Min(pct, 100)%"></div>
-                                            </div>
-                                            <span class="badge @(pct >= 100 ? "bg-danger" : pct >= 75 ? "bg-warning" : "bg-success")">@pct%</span>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                        <tfoot>
-                            <tr>
-                                <td class="fw-bold">TOTAL</td>
-                                <td>₱<strong>@budgets.Sum(b => b.Allocated).ToString("N2")</strong></td>
-                                <td>₱<strong>@budgets.Sum(b => b.Spent).ToString("N2")</strong></td>
-                                <td style="color: @(budgets.Sum(b => b.Allocated - b.Spent) < 0 ? "#ef4444" : "#0d8b7d"); font-weight: 700;">₱@budgets.Sum(b => b.Allocated - b.Spent).ToString("N2")</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+        <!-- Budget Summary Table (Dynamic - filters with date range) -->
+        <div class="table-card">
+            <div class="table-card-head">
+                <i class="bi bi-list-check me-2"></i> Budget Summary
             </div>
-        }
-        else
-        {
-            <div class="empty-state">
-                <i class="bi bi-inbox"></i>
-                <p>No budgets have been set by the CEO yet.</p>
+            <div class="table-responsive">
+                <table class="dash-table" id="budgetSummaryTable">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Allocated</th>
+                            <th>Spent</th>
+                            <th>Remaining</th>
+                            <th>Usage %</th>
+                        </tr>
+                    </thead>
+                    <tbody id="budgetTableBody">
+                        <tr><td colspan="5" style="text-align: center; padding: 20px; color: #666;">Loading budget summary...</td></tr>
+                    </tbody>
+                    <tfoot id="budgetTableFooter">
+                        <tr>
+                            <td class="fw-bold">TOTAL</td>
+                            <td>₱<strong id="totalAllocated">0.00</strong></td>
+                            <td>₱<strong id="totalSpent">0.00</strong></td>
+                            <td id="totalRemaining">₱0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
-        }
+        </div>
 
-        <!-- Budget Details Section -->
+        <!-- Budget Chart Only (Details moved to below chart) -->
         <div class="row g-3">
             <div class="col-lg-8">
                 <div class="table-card">
                     <div class="table-card-head">
-                        <i class="bi bi-graph-up me-2"></i> Budget Details
+                        <i class="bi bi-bar-chart me-2"></i> Budget Breakdown
                     </div>
                     <div style="padding: 18px;">
-                        <div id="budgetList">
-                            <p class="text-muted text-center py-4">Loading budget details...</p>
-                        </div>
+                        <canvas id="budgetChart" height="200"></canvas>
                     </div>
                 </div>
             </div>
             <div class="col-lg-4">
                 <div class="table-card">
                     <div class="table-card-head">
-                        <i class="bi bi-bar-chart me-2"></i> Budget Chart
+                        <i class="bi bi-list-check me-2"></i> Category Status
                     </div>
                     <div style="padding: 18px;">
-                        <canvas id="budgetChart" height="200"></canvas>
+                        <div id="budgetList">
+                            <p class="text-muted text-center py-4">Loading budget details...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -392,19 +361,49 @@ async function loadBudgets(){
     try{
         const res = await fetch('@Url.Action("Metrics","Manager")' + getFilterParams());
         const data = await res.json();
-        const container = document.getElementById('budgetList');
-        container.innerHTML = '';
+
+        // Update Summary Table
+        const tableBody = document.getElementById('budgetTableBody');
+        const budgetList = document.getElementById('budgetList');
+        tableBody.innerHTML = '';
+        budgetList.innerHTML = '';
+
         const labels = [];
         const used = [];
         const allocated = [];
+
+        let totalAllocated = 0;
+        let totalSpent = 0;
+        let totalRemaining = 0;
 
         for(const b of data.budgets || []){
             labels.push(b.category);
             used.push(b.spent);
             allocated.push(b.allocated);
+
+            const remaining = b.allocated - b.spent;
             const percent = b.allocated === 0 ? 0 : Math.min(100, Math.round((b.spent / b.allocated) * 100));
             const barClass = percent >= 100 ? 'budget-bar-fill--danger' : percent >= 75 ? 'budget-bar-fill--warn' : 'budget-bar-fill--ok';
 
+            // Add row to summary table
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-600">${b.category}</td>
+                <td>₱<strong>${b.allocated.toFixed(2)}</strong></td>
+                <td>₱<strong>${b.spent.toFixed(2)}</strong></td>
+                <td style="color: ${remaining < 0 ? '#ef4444' : '#0d8b7d'};">₱${remaining.toFixed(2)}</td>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="budget-bar" style="flex: 1;">
+                            <div class="budget-bar-fill ${barClass}" style="width:${Math.min(percent, 100)}%"></div>
+                        </div>
+                        <span class="badge ${percent >= 100 ? 'bg-danger' : percent >= 75 ? 'bg-warning' : 'bg-success'}">${percent}%</span>
+                    </div>
+                </td>
+            `;
+            tableBody.appendChild(tr);
+
+            // Add category card to breakdown section
             const div = document.createElement('div');
             div.className = 'mb-4';
             div.style.paddingBottom = '16px';
@@ -419,12 +418,28 @@ async function loadBudgets(){
                 </div>
                 <div class="text-muted small mt-2">${percent}% used</div>
             `;
-            container.appendChild(div);
+            budgetList.appendChild(div);
+
+            totalAllocated += b.allocated;
+            totalSpent += b.spent;
+            totalRemaining += remaining;
         }
 
-        // render chart
+        // Update totals in table footer
+        document.getElementById('totalAllocated').textContent = totalAllocated.toFixed(2);
+        document.getElementById('totalSpent').textContent = totalSpent.toFixed(2);
+        const totalColor = totalRemaining < 0 ? '#ef4444' : '#0d8b7d';
+        document.getElementById('totalRemaining').innerHTML = `<span style="color: ${totalColor}; font-weight: 700;">₱${totalRemaining.toFixed(2)}</span>`;
+
+        // Render chart
         const ctx = document.getElementById('budgetChart').getContext('2d');
-        new Chart(ctx, {
+
+        // Destroy old chart if exists
+        if (window.budgetChartInstance) {
+            window.budgetChartInstance.destroy();
+        }
+
+        window.budgetChartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: labels,
@@ -489,8 +504,9 @@ function setDateRange(rangeType) {
             endDate = new Date(today);
             break;
         case 'year':
+            // Year filter: Jan 1 to Dec 31 of current year
             startDate = new Date(today.getFullYear(), 0, 1);
-            endDate = new Date(today);
+            endDate = new Date(today.getFullYear(), 11, 31);
             break;
     }
 
@@ -535,7 +551,8 @@ function highlightActiveFilter() {
 
     if (!matchingRange) {
         const yearStart = new Date(now.getFullYear(), 0, 1);
-        if (start.getTime() === yearStart.getTime() && end.getTime() === today.getTime()) {
+        const yearEnd = new Date(now.getFullYear(), 11, 31);
+        if (start.getTime() === yearStart.getTime() && end.getTime() === yearEnd.getTime()) {
             matchingRange = 'year';
         }
     }
