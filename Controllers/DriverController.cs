@@ -84,29 +84,29 @@ namespace CEMS.Controllers
                 .Where(i => i.Report != null && i.Report.UserId == userId && i.Report.Status == ReportStatus.Approved);
 
             if (start.HasValue)
-                approvedItemsQuery = approvedItemsQuery.Where(i => i.Date >= start.Value);
+                approvedItemsQuery = approvedItemsQuery.Where(i => i.Report!.SubmissionDate >= start.Value);
             if (end.HasValue)
-                approvedItemsQuery = approvedItemsQuery.Where(i => i.Date <= end.Value);
+                approvedItemsQuery = approvedItemsQuery.Where(i => i.Report!.SubmissionDate <= end.Value.AddDays(1));
 
             var approvedTotal = await approvedItemsQuery.SumAsync(i => (decimal?)i.Amount) ?? 0m;
-            var approvedThisMonthTotal = await approvedItemsQuery.Where(i => i.Date >= monthStart).SumAsync(i => (decimal?)i.Amount) ?? 0m;
+            var approvedThisMonthTotal = await approvedItemsQuery.Where(i => i.Report!.SubmissionDate >= monthStart).SumAsync(i => (decimal?)i.Amount) ?? 0m;
 
             var reimbursedItemsQuery = _db.ExpenseItems
                 .Where(i => i.Report != null && i.Report.UserId == userId && i.Report.Reimbursed == true);
 
             if (start.HasValue)
-                reimbursedItemsQuery = reimbursedItemsQuery.Where(i => i.Date >= start.Value);
+                reimbursedItemsQuery = reimbursedItemsQuery.Where(i => i.Report!.SubmissionDate >= start.Value);
             if (end.HasValue)
-                reimbursedItemsQuery = reimbursedItemsQuery.Where(i => i.Date <= end.Value);
+                reimbursedItemsQuery = reimbursedItemsQuery.Where(i => i.Report!.SubmissionDate <= end.Value.AddDays(1));
 
             var reimbursedTotal = await reimbursedItemsQuery.SumAsync(i => (decimal?)i.Amount) ?? 0m;
 
             // Project only needed fields for recent items to avoid loading large ReceiptData blobs
             var recentItems = await _db.ExpenseItems
                 .Where(i => i.Report != null && i.Report.UserId == userId)
-                .Where(i => !start.HasValue || i.Date >= start.Value)
-                .Where(i => !end.HasValue || i.Date <= end.Value)
-                .OrderByDescending(i => i.Date)
+                .Where(i => !start.HasValue || i.Report!.SubmissionDate >= start.Value)
+                .Where(i => !end.HasValue || i.Report!.SubmissionDate <= end.Value.AddDays(1))
+                .OrderByDescending(i => i.Report!.SubmissionDate)
                 .Take(10)
                 .Select(i => new
                 {
@@ -134,12 +134,10 @@ namespace CEMS.Controllers
                 receiptUrl = i.ReceiptExists ? Url.Action("Receipt", "Driver", new { id = i.Id }) : (string.IsNullOrEmpty(i.ReceiptPath) ? null : i.ReceiptPath)
             }).ToList();
 
-            // Calculate spent dynamically from approved expense items (three-level date fallback for NULL dates)
+            // Calculate spent dynamically from approved expense items using report submission date
             var spentByCategory = await _db.ExpenseItems
                 .Where(ei => ei.Report != null && ei.Report.UserId == userId && ei.Report.Status == ReportStatus.Approved
-                             && ((ei.Date >= start && ei.Date <= end.Value.AddDays(1))
-                                 || (ei.Date == null && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
-                                 || (ei.Date == null && ei.Report.SubmissionDate < start && ei.Report.TripStart >= start && ei.Report.TripStart <= end.Value.AddDays(1))))
+                             && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
                 .GroupBy(ei => ei.Category)
                 .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
                 .ToListAsync();
@@ -397,7 +395,7 @@ namespace CEMS.Controllers
 
                 // Also enforce monthly ceiling
                 var currentMonthSpent = await _db.ExpenseItems
-                    .Where(i => i.Category == category && i.Date >= monthStart && i.ReportId != report.Id)
+                    .Where(i => i.Report != null && i.Category == category && i.Report.SubmissionDate >= monthStart && i.ReportId != report.Id)
                     .SumAsync(i => (decimal?)i.Amount) ?? 0m;
 
                 if (currentMonthSpent + reportCategoryTotal > budget.Allocated)
@@ -540,7 +538,7 @@ namespace CEMS.Controllers
                     var allowedForDay = budget.Allocated / daysInMonth;
 
                     var currentMonthSpent = await _db.ExpenseItems
-                        .Where(i => i.Category == model.Category && i.Date >= monthStart)
+                        .Where(i => i.Report != null && i.Category == model.Category && i.Report.SubmissionDate >= monthStart)
                         .SumAsync(i => (decimal?)i.Amount) ?? 0m;
 
                     if (model.Amount > allowedForDay || currentMonthSpent + model.Amount > budget.Allocated)
@@ -697,7 +695,7 @@ namespace CEMS.Controllers
 
                     // Also enforce monthly ceiling
                     var currentMonthSpent = await _db.ExpenseItems
-                        .Where(i => i.Category == category && i.Date >= monthStart)
+                        .Where(i => i.Report != null && i.Category == category && i.Report.SubmissionDate >= monthStart)
                         .SumAsync(i => (decimal?)i.Amount) ?? 0m;
 
                     if (currentMonthSpent + reportCategoryTotal > budget.Allocated)
@@ -809,16 +807,16 @@ namespace CEMS.Controllers
                 .Where(i => i.Report != null && i.Report.UserId == userId);
 
             if (start.HasValue)
-                q = q.Where(i => i.Date >= start.Value);
+                q = q.Where(i => i.Report!.SubmissionDate >= start.Value);
             if (end.HasValue)
-                q = q.Where(i => i.Date <= end.Value);
+                q = q.Where(i => i.Report!.SubmissionDate <= end.Value.AddDays(1));
             if (!string.IsNullOrEmpty(status) && Enum.TryParse<ReportStatus>(status, out var s))
                 q = q.Where(i => i.Report != null && i.Report.Status == s);
 
             var totalCount = await q.CountAsync();
 
             var itemsRaw = await q
-                .OrderByDescending(i => i.Date)
+                .OrderByDescending(i => i.Report!.SubmissionDate)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
