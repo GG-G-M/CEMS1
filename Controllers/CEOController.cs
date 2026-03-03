@@ -37,9 +37,9 @@ namespace CEMS.Controllers
             var budgets = await _db.Budgets.ToListAsync();
             ViewBag.TotalBudget = budgets.Sum(b => b.Allocated);
 
-            // Calculate spent dynamically from approved expense items (three-level date fallback for NULL dates)
+            // Calculate spent dynamically from reimbursed expense items only (Finance paid, three-level date fallback for NULL dates)
             var spentByCategory = await _db.ExpenseItems
-                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved
+                .Where(ei => ei.Report != null && ei.Report.Reimbursed == true
                              && ((ei.Date >= startDate && ei.Date <= endDate.AddDays(1))
                                  || (ei.Date == null && ei.Report.SubmissionDate >= startDate && ei.Report.SubmissionDate <= endDate.AddDays(1))
                                  || (ei.Date == null && ei.Report.SubmissionDate < startDate && ei.Report.TripStart >= startDate && ei.Report.TripStart <= endDate.AddDays(1))))
@@ -107,7 +107,7 @@ namespace CEMS.Controllers
 
             // ── Spending Trend Data (Weekly) ──
             var allReports = await _db.ExpenseReports
-                .Where(r => r.SubmissionDate >= startDate && r.SubmissionDate <= endDate)
+                .Where(r => r.Reimbursed == true && r.SubmissionDate >= startDate && r.SubmissionDate <= endDate)
                 .ToListAsync();
 
             // Group by week
@@ -155,7 +155,7 @@ namespace CEMS.Controllers
                 var me = ms.AddMonths(1).AddDays(-1);
                 monthLabels.Add(ms.ToString("MMM"));
                 var mt = await _db.ExpenseReports
-                    .Where(r => r.SubmissionDate >= ms && r.SubmissionDate <= me)
+                    .Where(r => r.Reimbursed == true && r.SubmissionDate >= ms && r.SubmissionDate <= me)
                     .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
                 monthTotals.Add(mt);
             }
@@ -306,6 +306,7 @@ namespace CEMS.Controllers
             report.CEOApproved = false;
             report.ForwardedToCEO = false;
             report.Status = ReportStatus.Rejected;
+            report.BudgetCheck = BudgetCheckStatus.WithinBudget;
 
             var approval = new Approval
             {

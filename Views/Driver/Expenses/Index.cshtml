@@ -176,10 +176,7 @@
         background: #f8fafc;
         border: 1px solid var(--d-border);
         border-radius: var(--d-radius);
-        padding: 20px;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
+        overflow: hidden;
         position: relative;
         transition: border-color .2s, background 0.3s ease;
     }
@@ -192,9 +189,105 @@
             border-color: var(--d-primary);
         }
 
+    /* Row Header (Summary) */
+    .expense-row-header {
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+        background: var(--d-card);
+        border-bottom: 1px solid var(--d-border);
+        transition: background .2s;
+    }
+
+        .expense-row-header:hover {
+            background: rgba(26, 107, 181, .04);
+        }
+
+    body.dark-mode .expense-row-header:hover {
+        background: rgba(46, 196, 182, .08);
+    }
+
+    .expense-row-header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .expense-row-header-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        color: var(--d-primary);
+        transition: transform .2s ease;
+        flex-shrink: 0;
+    }
+
+        .expense-row-header-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+    .expense-row-summary {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .summary-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .summary-label {
+        font-size: .75rem;
+        color: var(--d-muted);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: .3px;
+    }
+
+    .summary-value {
+        font-size: .95rem;
+        font-weight: 600;
+        color: var(--d-text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Row Content (Form Fields) */
+    .expense-row-content {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        max-height: 500px;
+        overflow: hidden;
+        transition: all .3s ease;
+    }
+
+        .expense-row-content.collapsed {
+            max-height: 0;
+            padding: 0 20px;
+            opacity: 0;
+            pointer-events: none;
+        }
+
     .field-group {
         display: flex;
         flex-direction: column;
+    }
+
+    .expense-row-content.collapsed .field-group {
+        display: none;
     }
 
     .field-label {
@@ -255,19 +348,17 @@
 
     /* Remove Button */
     .remove-row-btn {
-        position: absolute;
-        top: 16px;
-        right: 16px;
         background: none;
         border: none;
         color: var(--d-danger);
         cursor: pointer;
-        padding: 4px;
+        padding: 6px;
         border-radius: 4px;
         transition: background .2s;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
 
         .remove-row-btn:hover {
@@ -321,12 +412,12 @@
 
     /* Mobile Responsive */
     @@media (max-width: 992px) {
-        .expense-row {
+        .expense-row-content {
             grid-template-columns: repeat(2, 1fr);
         }
     }
     @@media (max-width: 768px) {
-        .expense-row {
+        .expense-row-content {
             grid-template-columns: 1fr;
         }
 
@@ -351,6 +442,14 @@
 
         .trip-context-fields {
             flex-direction: column;
+        }
+
+        .expense-row-summary {
+            gap: 12px;
+        }
+
+        .summary-item {
+            min-width: 80px;
         }
     }
 
@@ -581,15 +680,14 @@
         <div class="expense-card">
             <div class="expense-card-head">
                 <div class="expense-card-title">
-                    <i class="bi bi-plus-circle"></i>
-                    Multiple Expense Items
+                    Expense Items
                 </div>
                 <div class="expense-actions">
                     <a id="addRowBtn" class="add-row-btn">
-                        <i class="bi bi-plus-lg"></i> Add Row
+                       Add Row
                     </a>
                     <button id="submitAllBtn" class="submit-all-btn">
-                        <i class="bi bi-send-check"></i> Submit All
+                        Submit All
                     </button>
                 </div>
             </div>
@@ -766,6 +864,16 @@
             }
 
             function addRow() {
+                // Collapse all existing rows when adding a new one
+                Array.from(rows.children).forEach(existingRow => {
+                    const content = existingRow.querySelector('.expense-row-content');
+                    const toggle = existingRow.querySelector('.expense-row-header-toggle');
+                    if (content && !content.classList.contains('collapsed')) {
+                        content.classList.add('collapsed');
+                        toggle.classList.add('collapsed');
+                    }
+                });
+
                 const idx = rows.children.length;
                 const row = document.createElement('div');
                 row.className = 'expense-row';
@@ -773,56 +881,79 @@
                 const today = getTodayDate();
 
                 row.innerHTML = `
-                    <div class="field-group">
-                        <label class="field-label">
-                            <i class="bi bi-calendar3"></i> Date
-                            <span class="required">*</span>
-                        </label>
-                        <input type="date" name="items[${idx}].Date" class="field-input" value="${today}" required />
+                    <div class="expense-row-header">
+                        <div class="expense-row-header-left">
+                            <div class="expense-row-header-toggle">
+                                <i class="bi bi-chevron-down"></i>
+                            </div>
+                            <div class="expense-row-summary">
+                                <div class="summary-item">
+                                    <span class="summary-label">Date</span>
+                                    <span class="summary-value" data-summary="date">${today}</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Category</span>
+                                    <span class="summary-value" data-summary="category">—</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span class="summary-label">Amount</span>
+                                    <span class="summary-value" data-summary="amount">₱0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" class="remove-row-btn" title="Remove this row">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
 
-                    <div class="field-group">
-                        <label class="field-label">
-                            <i class="bi bi-tag"></i> Category
-                            <span class="required">*</span>
-                        </label>
-                        <select name="items[${idx}].Category" class="field-input" required>
-                            <option value="">Select category</option>
-                            <!-- categories populated from server -->
-                        </select>
-                    </div>
+                    <div class="expense-row-content">
+                        <div class="field-group">
+                            <label class="field-label">
+                                 Date
+                                <span class="required">*</span>
+                            </label>
+                            <input type="date" name="items[${idx}].Date" class="field-input" value="${today}" required />
+                        </div>
 
-                    <div class="field-group">
-                        <label class="field-label">
-                            <i class="bi bi-currency-dollar"></i> Amount
-                            <span class="required">*</span>
-                        </label>
-                        <input type="number" step="0.01" min="0" name="items[${idx}].Amount"
-                               class="field-input" placeholder="0.00" required />
-                    </div>
+                        <div class="field-group">
+                            <label class="field-label">
+                                 Category
+                                <span class="required">*</span>
+                            </label>
+                            <select name="items[${idx}].Category" class="field-input" required>
+                                <option value="">Select category</option>
+                                <!-- categories populated from server -->
+                            </select>
+                        </div>
 
-                    <div class="field-group">
-                        <label class="field-label">
-                            <i class="bi bi-card-text"></i> Description
-                        </label>
-                        <input type="text" name="items[${idx}].Description"
-                               class="field-input" placeholder="Brief description or note" />
-                    </div>
+                        <div class="field-group">
+                            <label class="field-label">
+                                Amount
+                                <span class="required">*</span>
+                            </label>
+                            <input type="number" step="0.01" min="0" name="items[${idx}].Amount"
+                                   class="field-input" placeholder="0.00" required />
+                        </div>
 
-                    <div class="field-group">
-                        <label class="field-label">
-                            <i class="bi bi-paperclip"></i> Receipt (Optional)
-                        </label>
-                        <input type="file" name="items[${idx}].Receipt"
-                               class="field-input" accept="image/*,.pdf,.doc,.docx" />
-                        <small style="font-size: .75rem; color: var(--d-muted); margin-top: 4px;">
-                            Images, PDF, or Word docs
-                        </small>
-                    </div>
+                        <div class="field-group">
+                            <label class="field-label">
+                                 Description
+                            </label>
+                            <input type="text" name="items[${idx}].Description"
+                                   class="field-input" placeholder="Brief description or note" />
+                        </div>
 
-                    <button type="button" class="remove-row-btn" title="Remove this row">
-                        <i class="bi bi-trash"></i>
-                    </button>
+                        <div class="field-group">
+                            <label class="field-label">
+                               Receipt 
+                            </label>
+                            <input type="file" name="items[${idx}].Receipt"
+                                   class="field-input" accept="image/*,.pdf,.doc,.docx" />
+                            <small style="font-size: .75rem; color: var(--d-muted); margin-top: 4px;">
+                                Images, PDF, or Word docs
+                            </small>
+                        </div>
+                    </div>
                 `;
 
                 rows.appendChild(row);
@@ -830,8 +961,19 @@
                 const categorySelect = row.querySelector('select[name$=".Category"]');
                 populateCategories(categorySelect);
 
-                // Attach remove handler
+                const header = row.querySelector('.expense-row-header');
+                const content = row.querySelector('.expense-row-content');
+                const toggle = row.querySelector('.expense-row-header-toggle');
                 const removeBtn = row.querySelector('.remove-row-btn');
+
+                // Toggle collapse/expand on header click
+                header.addEventListener('click', (e) => {
+                    if (e.target.closest('.remove-row-btn')) return;
+                    content.classList.toggle('collapsed');
+                    toggle.classList.toggle('collapsed');
+                });
+
+                // Attach remove handler
                 removeBtn.addEventListener('click', () => {
                     if (rows.children.length > 1) {
                         row.remove();
@@ -842,8 +984,20 @@
                     }
                 });
 
-                // Add focus styling
+                // Update summary when inputs change
                 const inputs = row.querySelectorAll('.field-input');
+                inputs.forEach(input => {
+                    input.addEventListener('input', () => {
+                        updateRowSummary(row);
+                        updateSummary();
+                    });
+                    input.addEventListener('change', () => {
+                        updateRowSummary(row);
+                        updateSummary();
+                    });
+                });
+
+                // Add focus styling
                 inputs.forEach(input => {
                     input.addEventListener('focus', () => {
                         row.style.borderColor = 'var(--d-primary)';
@@ -854,12 +1008,31 @@
                         row.style.borderColor = 'var(--d-border)';
                         row.style.boxShadow = 'none';
                     });
-
-                    input.addEventListener('input', updateSummary);
-                    input.addEventListener('change', updateSummary);
                 });
 
+                updateRowSummary(row);
                 updateSummary();
+            }
+
+            function updateRowSummary(row) {
+                const dateInput = row.querySelector('input[name$=".Date"]');
+                const categorySelect = row.querySelector('select[name$=".Category"]');
+                const amountInput = row.querySelector('input[name$=".Amount"]');
+
+                const dateSummary = row.querySelector('[data-summary="date"]');
+                const categorySummary = row.querySelector('[data-summary="category"]');
+                const amountSummary = row.querySelector('[data-summary="amount"]');
+
+                if (dateSummary && dateInput) {
+                    dateSummary.textContent = dateInput.value || '—';
+                }
+                if (categorySummary && categorySelect) {
+                    categorySummary.textContent = categorySelect.value || '—';
+                }
+                if (amountSummary && amountInput) {
+                    const amount = parseFloat(amountInput.value) || 0;
+                    amountSummary.textContent = '₱' + amount.toFixed(2);
+                }
             }
 
             function reorderIndexes() {

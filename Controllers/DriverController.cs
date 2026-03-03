@@ -134,9 +134,9 @@ namespace CEMS.Controllers
                 receiptUrl = i.ReceiptExists ? Url.Action("Receipt", "Driver", new { id = i.Id }) : (string.IsNullOrEmpty(i.ReceiptPath) ? null : i.ReceiptPath)
             }).ToList();
 
-            // Calculate spent dynamically from approved expense items using report submission date
+            // Calculate spent dynamically from reimbursed expense items only (Finance paid)
             var spentByCategory = await _db.ExpenseItems
-                .Where(ei => ei.Report != null && ei.Report.UserId == userId && ei.Report.Status == ReportStatus.Approved
+                .Where(ei => ei.Report != null && ei.Report.UserId == userId && ei.Report.Reimbursed == true
                              && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
                 .GroupBy(ei => ei.Category)
                 .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })

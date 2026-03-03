@@ -58,10 +58,10 @@ namespace CEMS.Controllers
             // Budget totals (calculate spent from approved expense items, not static Budget.Spent)
             var budgets = await _db.Budgets.ToListAsync();
 
-            // Calculate actual spent for each category from approved items
+            // Calculate actual spent for each category from reimbursed items only (Finance paid)
             // Use item date if available, fall back to report submission date, then to trip start date for old backfilled data
             var spentByCategory = await _db.ExpenseItems
-                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved
+                .Where(ei => ei.Report != null && ei.Report.Reimbursed == true
                              && ((ei.Date >= start && ei.Date <= end.Value.AddDays(1)) 
                                  || (ei.Date == null && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
                                  || (ei.Date == null && ei.Report.SubmissionDate < start && ei.Report.TripStart >= start && ei.Report.TripStart <= end.Value.AddDays(1))))
@@ -259,7 +259,7 @@ namespace CEMS.Controllers
                 .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
 
             var overBudgetCount = await _db.ExpenseReports
-                .Where(r => r.BudgetCheck == BudgetCheckStatus.OverBudget && (r.Status == ReportStatus.Submitted || r.Status == ReportStatus.PendingCEOApproval) && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
+                .Where(r => r.BudgetCheck == BudgetCheckStatus.OverBudget && r.Reimbursed == true && r.SubmissionDate >= start && r.SubmissionDate <= end.Value.AddDays(1))
                 .CountAsync();
 
             // Approved by this manager in the date range (dynamically calculated)
@@ -276,10 +276,10 @@ namespace CEMS.Controllers
             // Filter by expense item date (not submission date) so old backfilled data is included
             var allBudgets = await _db.Budgets.ToListAsync();
 
-            // Sum expense items per category from approved reports
+            // Sum expense items per category from reimbursed reports only (Finance paid)
             // Use item date if available, fall back to report submission date, then to trip start date for old backfilled data
             var spentByCategory = await _db.ExpenseItems
-                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved
+                .Where(ei => ei.Report != null && ei.Report.Reimbursed == true
                              && ((ei.Date >= start && ei.Date <= end.Value.AddDays(1)) 
                                  || (ei.Date == null && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
                                  || (ei.Date == null && ei.Report.SubmissionDate < start && ei.Report.TripStart >= start && ei.Report.TripStart <= end.Value.AddDays(1))))
@@ -339,7 +339,7 @@ namespace CEMS.Controllers
                 var me = ms.AddMonths(1).AddDays(-1);
                 monthLabels.Add(ms.ToString("MMM"));
                 var mt = await _db.ExpenseReports
-                    .Where(r => r.SubmissionDate >= ms && r.SubmissionDate <= me)
+                    .Where(r => r.Reimbursed == true && r.SubmissionDate >= ms && r.SubmissionDate <= me)
                     .SumAsync(r => (decimal?)r.TotalAmount) ?? 0m;
                 monthTotals.Add(mt);
             }
@@ -443,11 +443,11 @@ namespace CEMS.Controllers
             // Load all budgets (matching CEO's approach for consistency)
             var budgets = await _db.Budgets.OrderBy(b => b.Category).ToListAsync();
 
-            // Calculate actual spending from approved expense items (all-time)
+            // Calculate actual spending from reimbursed expense items only (Finance paid)
             // This ensures the summary always shows accurate spent amounts
             var spentByCategory = await _db.ExpenseItems
                 .Where(ei => ei.Category != null && ei.Report != null 
-                             && ei.Report.Status == ReportStatus.Approved)
+                             && ei.Report.Reimbursed == true)
                 .GroupBy(ei => ei.Category)
                 .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
                 .ToListAsync();
@@ -558,6 +558,7 @@ namespace CEMS.Controllers
             if (report == null) return NotFound();
 
             report.Status = ReportStatus.Rejected;
+            report.BudgetCheck = BudgetCheckStatus.WithinBudget;
             // record manager rejection with reason
             var rejectionRemarks = string.IsNullOrWhiteSpace(remarks) ? "Rejected by manager" : remarks.Trim();
             var rejection = new Models.Approval
