@@ -219,20 +219,38 @@
         transition: all 0.2s ease;
         white-space: nowrap;
         flex-shrink: 0;
+        position: relative;
     }
 
     .filter-btn:hover {
         background: #e2e8f0;
         color: var(--d-primary);
+        transform: translateY(-1px);
     }
 
     .filter-btn.active {
         background: var(--d-primary);
         color: white;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(26, 107, 181, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .filter-btn.active::after {
+        content: '';
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        background: var(--d-primary);
+        border-radius: 50%;
     }
 
     .filter-btn.active:hover {
         background: #155a9a;
+        box-shadow: 0 6px 16px rgba(26, 107, 181, 0.4);
     }
 
     .filter-bar {
@@ -273,11 +291,11 @@
         <div class="filter-bar">
             <div class="filter-group">
                 <label>From</label>
-                <input type="date" id="filterStart" value="@DateTime.UtcNow.AddMonths(-1).ToString("yyyy-MM-dd")">
+                <input type="date" id="filterStart" value="@(new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).ToString("yyyy-MM-dd"))">
             </div>
             <div class="filter-group">
                 <label>To</label>
-                <input type="date" id="filterEnd" value="@DateTime.UtcNow.ToString("yyyy-MM-dd")">
+                <input type="date" id="filterEnd" value="@(DateTime.UtcNow.ToString("yyyy-MM-dd"))">
             </div>
             <div class="quick-filters ms-auto">
                 <button class="filter-btn" data-range="today">Today</button>
@@ -501,7 +519,7 @@ function setDateRange(rangeType) {
             break;
         case 'month':
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = new Date(today);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
             break;
         case 'year':
             // Year filter: Jan 1 to Dec 31 of current year

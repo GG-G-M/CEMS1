@@ -31,8 +31,8 @@ namespace CEMS.Controllers
         
         public async Task<IActionResult> Dashboard(DateTime? start, DateTime? end)
         {
-            // Set default date range if not provided
-            if (!start.HasValue) start = DateTime.UtcNow.AddMonths(-1).Date;
+            // Set default date range if not provided (first of current month to today)
+            if (!start.HasValue) start = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             if (!end.HasValue) end = DateTime.UtcNow.Date;
 
             ViewBag.FilterStart = start?.ToString("yyyy-MM-dd");
@@ -56,11 +56,15 @@ namespace CEMS.Controllers
             ViewBag.PendingReports = pendingWithUsers;
 
             // Budget totals (calculate spent from approved expense items, not static Budget.Spent)
-            var budgets = await _db.Budgets.Where(b => b.IsActive).ToListAsync();
+            var budgets = await _db.Budgets.ToListAsync();
 
             // Calculate actual spent for each category from approved items
+            // Use item date if available, fall back to report submission date, then to trip start date for old backfilled data
             var spentByCategory = await _db.ExpenseItems
-                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved)
+                .Where(ei => ei.Report != null && ei.Report.Status == ReportStatus.Approved
+                             && ((ei.Date >= start && ei.Date <= end.Value.AddDays(1)) 
+                                 || (ei.Date == null && ei.Report.SubmissionDate >= start && ei.Report.SubmissionDate <= end.Value.AddDays(1))
+                                 || (ei.Date == null && ei.Report.SubmissionDate < start && ei.Report.TripStart >= start && ei.Report.TripStart <= end.Value.AddDays(1))))
                 .GroupBy(ei => ei.Category)
                 .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
                 .ToListAsync();
@@ -76,15 +80,14 @@ namespace CEMS.Controllers
             ViewBag.TotalSpent = totalSpent;
             ViewBag.TotalRemaining = budgets.Sum(b => b.Allocated) - totalSpent;
 
-            // Approved today (dynamically calculated from Approvals table)
-            var today = DateTime.UtcNow.Date;
-            var approvedToday = await _db.Approvals
+            // Approved in date range (dynamically calculated from Approvals table)
+            var approvedInRange = await _db.Approvals
                 .Include(a => a.Report)
-                .Where(a => a.Stage == "Manager" && a.Status == ApprovalStatus.Approved && a.DecisionDate.HasValue && a.DecisionDate.Value.Date == today)
+                .Where(a => a.Stage == "Manager" && a.Status == ApprovalStatus.Approved && a.DecisionDate.HasValue && a.DecisionDate.Value >= start && a.DecisionDate.Value <= end.Value.AddDays(1))
                 .Where(a => a.Report != null) // Ensure report is not null
                 .ToListAsync();
-            ViewBag.ApprovedTodayCount = approvedToday.Count;
-            ViewBag.ApprovedTodayTotal = approvedToday.Sum(a => a.Report.TotalAmount);
+            ViewBag.ApprovedTodayCount = approvedInRange.Count;
+            ViewBag.ApprovedTodayTotal = approvedInRange.Sum(a => a.Report.TotalAmount);
 
             // Active drivers
             var driverUsers = await _userManager.GetUsersInRoleAsync("Driver");
@@ -239,8 +242,8 @@ namespace CEMS.Controllers
         [HttpGet]
         public async Task<IActionResult> Metrics(DateTime? start, DateTime? end)
         {
-            // Set default date range if not provided
-            if (!start.HasValue) start = DateTime.UtcNow.AddMonths(-1).Date;
+            // Set default date range if not provided (first of current month to today)
+            if (!start.HasValue) start = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
             if (!end.HasValue) end = DateTime.UtcNow.Date;
 
             var totalPending = await _db.ExpenseReports
@@ -263,7 +266,7 @@ namespace CEMS.Controllers
             var approvedByManagerRaw = await _db.Approvals
                 .Include(a => a.Report)
                 .Where(a => a.Stage == "Manager" && a.Status == ApprovalStatus.Approved && 
-                       a.DecisionDate.HasValue && a.DecisionDate.Value >= start && a.DecisionDate.Value <= end.Value.AddDays(1))
+                       a.DecisionDate.HasValue && a.DecisionDate.Value.Date >= start.Value.Date && a.DecisionDate.Value.Date <= end.Value.Date)
                 .ToListAsync();
             // Filter out null reports to ensure accurate calculations
             var approvedTodayCount = approvedByManagerRaw.Where(a => a.Report != null).Count();
@@ -271,7 +274,7 @@ namespace CEMS.Controllers
 
             // Budget per category with spent amounts for the date range (only approved reports)
             // Filter by expense item date (not submission date) so old backfilled data is included
-            var allBudgets = await _db.Budgets.Where(b => b.IsActive).ToListAsync();
+            var allBudgets = await _db.Budgets.ToListAsync();
 
             // Sum expense items per category from approved reports
             // Use item date if available, fall back to report submission date, then to trip start date for old backfilled data
@@ -437,20 +440,22 @@ namespace CEMS.Controllers
 
         public async Task<IActionResult> Budget()
         {
-            // Load all active budgets
-            var budgets = await _db.Budgets.Where(b => b.IsActive).OrderBy(b => b.Category).ToListAsync();
+            // Load all budgets (matching CEO's approach for consistency)
+            var budgets = await _db.Budgets.OrderBy(b => b.Category).ToListAsync();
 
-            // For each budget, calculate actual spending from approved expense items (all time)
+            // Calculate actual spending from approved expense items (all-time)
             // This ensures the summary always shows accurate spent amounts
+            var spentByCategory = await _db.ExpenseItems
+                .Where(ei => ei.Category != null && ei.Report != null 
+                             && ei.Report.Status == ReportStatus.Approved)
+                .GroupBy(ei => ei.Category)
+                .Select(g => new { Category = g.Key, Total = g.Sum(ei => ei.Amount) })
+                .ToListAsync();
+
+            // Set spent amount for each budget from the calculated spending
             foreach (var budget in budgets)
             {
-                var spent = await _db.ExpenseItems
-                    .Where(ei => ei.Category == budget.Category 
-                                 && ei.Report != null 
-                                 && ei.Report.Status == ReportStatus.Approved)
-                    .SumAsync(ei => (decimal?)ei.Amount) ?? 0m;
-
-                budget.Spent = spent;
+                budget.Spent = spentByCategory.FirstOrDefault(s => s.Category == budget.Category)?.Total ?? 0m;
             }
 
             ViewBag.Budgets = budgets;

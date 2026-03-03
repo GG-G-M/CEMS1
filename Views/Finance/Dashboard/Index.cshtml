@@ -22,8 +22,8 @@
                     datasets: [{
                         label: 'Amount (₱)',
                         data: [toProcess, processedToday, monthlyTotal],
-                        backgroundColor: ['rgba(2,136,209,0.7)', 'rgba(46,125,50,0.7)', 'rgba(46,196,182,0.7)'],
-                        borderColor: ['#0288d1', '#2e7d32', '#2ec4b6'],
+                        backgroundColor: ['rgba(245,158,11,0.7)', 'rgba(22,163,74,0.7)', 'rgba(2,132,199,0.7)'],
+                        borderColor: ['#f59e0b', '#16a34a', '#0284c7'],
                         borderWidth: 1,
                         borderRadius: 4
                     }]
@@ -174,14 +174,14 @@
     body.dark-mode .stat-card { background: #1e293b; border-color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
     .stat-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
-    .stat-icon.blue { background: #e1f5fe; color: #0288d1; }
-    .stat-icon.green { background: #e8f5e9; color: #2e7d32; }
-    .stat-icon.purple { background: #ede7f6; color: #6366f1; }
-    .stat-icon.orange { background: #fff3e0; color: #f57c00; }
-    body.dark-mode .stat-icon.blue { background: #0a2a3a; color: #4fc3f7; }
-    body.dark-mode .stat-icon.green { background: #1a2e1a; color: #81c784; }
-    body.dark-mode .stat-icon.purple { background: #1a1a2e; color: #b39ddb; }
-    body.dark-mode .stat-icon.orange { background: #2a1e0a; color: #ffb74d; }
+    .stat-icon.blue { background: #dbeafe; color: #0284c7; }
+    .stat-icon.green { background: #dcfce7; color: #16a34a; }
+    .stat-icon.orange { background: #fef3c7; color: #d97706; }
+    .stat-icon.red { background: #fee2e2; color: #dc2626; }
+    body.dark-mode .stat-icon.blue { background: #0c4a6e; color: #7dd3fc; }
+    body.dark-mode .stat-icon.green { background: #166534; color: #86efac; }
+    body.dark-mode .stat-icon.orange { background: #78350f; color: #fcd34d; }
+    body.dark-mode .stat-icon.red { background: #7f1d1d; color: #fca5a5; }
 
     .stat-content { flex: 1; }
     .stat-label { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin-bottom: 2px; letter-spacing: 0.3px; }
@@ -329,7 +329,7 @@
         <!-- STATS ROW -->
         <div class="stats-row">
             <a href="@Url.Action("ApprovedReports", "Finance")" class="stat-card">
-                <div class="stat-icon blue"><i class="bi bi-hourglass-split"></i></div>
+                <div class="stat-icon orange"><i class="bi bi-hourglass-split"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">TO PROCESS</div>
                     <div class="stat-number">₱<span id="toProcessVal">@(((decimal?)ViewBag.TotalToProcess ?? 0m).ToString("0.00"))</span></div>
@@ -345,7 +345,7 @@
                 </div>
             </a>
             <div class="stat-card">
-                <div class="stat-icon purple"><i class="bi bi-cash-coin"></i></div>
+                <div class="stat-icon blue"><i class="bi bi-cash-coin"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">MONTHLY TOTAL</div>
                     <div class="stat-number">₱<span id="monthlyVal">0.00</span></div>
@@ -353,7 +353,7 @@
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon orange"><i class="bi bi-credit-card"></i></div>
+                <div class="stat-icon red"><i class="bi bi-credit-card"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">PAYMENT STATUS</div>
                     <div class="stat-number status-ready">✓ Ready</div>

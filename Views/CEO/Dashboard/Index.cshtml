@@ -48,14 +48,14 @@
     .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
     body.dark-mode .stat-card { background: #1e293b; border-color: #334155; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
     .stat-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
-    .stat-icon.blue { background: #e1f5fe; color: #0288d1; }
-    .stat-icon.green { background: #e8f5e9; color: #2e7d32; }
-    .stat-icon.orange { background: #fff3e0; color: #f57c00; }
-    .stat-icon.purple { background: #f3e5f5; color: #7b1fa2; }
-    body.dark-mode .stat-icon.blue { background: #0a2a3a; color: #4fc3f7; }
-    body.dark-mode .stat-icon.green { background: #1a2e1a; color: #81c784; }
-    body.dark-mode .stat-icon.orange { background: #2a1e0a; color: #ffb74d; }
-    body.dark-mode .stat-icon.purple { background: #1a0f2a; color: #b39ddb; }
+    .stat-icon.blue { background: #dbeafe; color: #0284c7; }
+    .stat-icon.green { background: #dcfce7; color: #16a34a; }
+    .stat-icon.orange { background: #fef3c7; color: #d97706; }
+    .stat-icon.red { background: #fee2e2; color: #dc2626; }
+    body.dark-mode .stat-icon.blue { background: #0c4a6e; color: #7dd3fc; }
+    body.dark-mode .stat-icon.green { background: #166534; color: #86efac; }
+    body.dark-mode .stat-icon.orange { background: #78350f; color: #fcd34d; }
+    body.dark-mode .stat-icon.red { background: #7f1d1d; color: #fca5a5; }
     .stat-content { flex: 1; }
     .stat-label { font-size: 0.7rem; text-transform: uppercase; color: #64748b; margin-bottom: 2px; letter-spacing: 0.3px; }
     .stat-number { font-size: 1.25rem; font-weight: 600; line-height: 1.2; }
@@ -84,10 +84,10 @@
     .text-right { text-align: right; }
 
     .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; }
-    .badge-danger { background: #ffebee; color: #d32f2f; }
-    .badge-warning { background: #fff3e0; color: #f57c00; }
-    body.dark-mode .badge-danger { background: #2a1a1a; color: #ef9a9a; }
-    body.dark-mode .badge-warning { background: #2a1e0a; color: #ffb74d; }
+    .badge-danger { background: #fee2e2; color: #dc2626; }
+    .badge-warning { background: #fef3c7; color: #d97706; }
+    body.dark-mode .badge-danger { background: #7f1d1d; color: #fca5a5; }
+    body.dark-mode .badge-warning { background: #78350f; color: #fcd34d; }
 
     .action-link { color: #0288d1; text-decoration: none; font-size: 0.75rem; font-weight: 500; padding: 4px 8px; border-radius: 4px; background: rgba(2,136,209,0.1); }
     .action-link:hover { background: #0288d1; color: white; }
@@ -196,7 +196,7 @@
                 </div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon purple"><i class="bi bi-people"></i></div>
+                <div class="stat-icon blue"><i class="bi bi-people"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">Active Drivers</div>
                     <div class="stat-number">@activeDrivers</div>

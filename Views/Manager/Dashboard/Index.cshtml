@@ -359,43 +359,43 @@
     }
 
         .stat-icon.blue {
-            background: #e1f5fe;
-            color: #0288d1;
+            background: #dbeafe;
+            color: #0284c7;
         }
 
         .stat-icon.green {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: #dcfce7;
+            color: #16a34a;
         }
 
         .stat-icon.orange {
-            background: #fff3e0;
-            color: #f57c00;
+            background: #fef3c7;
+            color: #d97706;
         }
 
-        .stat-icon.purple {
-            background: #f3e5f5;
-            color: #7b1fa2;
+        .stat-icon.red {
+            background: #fee2e2;
+            color: #dc2626;
         }
 
     body.dark-mode .stat-icon.blue {
-        background: #0a2a3a;
-        color: #4fc3f7;
+        background: #0c4a6e;
+        color: #7dd3fc;
     }
 
     body.dark-mode .stat-icon.green {
-        background: #1a2e1a;
-        color: #81c784;
+        background: #166534;
+        color: #86efac;
     }
 
     body.dark-mode .stat-icon.orange {
-        background: #2a1e0a;
-        color: #ffb74d;
+        background: #78350f;
+        color: #fcd34d;
     }
 
-    body.dark-mode .stat-icon.purple {
-        background: #1a0f2a;
-        color: #b39ddb;
+    body.dark-mode .stat-icon.red {
+        background: #7f1d1d;
+        color: #fca5a5;
     }
 
     .stat-content {
@@ -609,17 +609,17 @@
 
     .progress-fill {
         height: 100%;
-        background: #0288d1;
+        background: #0284c7;
         border-radius: 3px;
         transition: width 0.3s ease;
     }
 
         .progress-fill.warning {
-            background: #f57c00;
+            background: #f59e0b;
         }
 
         .progress-fill.danger {
-            background: #d32f2f;
+            background: #dc2626;
         }
 
     .budget-percent {
@@ -715,23 +715,33 @@
     }
 
         .status-badge.within {
-            background: #e8f5e9;
-            color: #2e7d32;
+            background: #dcfce7;
+            color: #16a34a;
         }
 
         .status-badge.over {
-            background: #ffebee;
-            color: #d32f2f;
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #d97706;
         }
 
     body.dark-mode .status-badge.within {
-        background: #1a2e1a;
-        color: #81c784;
+        background: #166534;
+        color: #86efac;
     }
 
     body.dark-mode .status-badge.over {
-        background: #2a1a1a;
-        color: #ef9a9a;
+        background: #7f1d1d;
+        color: #fca5a5;
+    }
+
+    body.dark-mode .status-badge.pending {
+        background: #78350f;
+        color: #fcd34d;
     }
 
     /* View link */
@@ -989,8 +999,8 @@
     .fuel-price { font-size: 0.85rem; font-weight: 700; color: #0288d1; white-space: nowrap; }
     .fuel-price .unit { font-size: 0.6rem; font-weight: 500; color: #94a3b8; }
     .fuel-trend { font-size: 0.6rem; font-weight: 600; margin-top: 1px; }
-    .fuel-trend.up { color: #d32f2f; }
-    .fuel-trend.down { color: #2e7d32; }
+    .fuel-trend.up { color: #dc2626; }
+    .fuel-trend.down { color: #16a34a; }
     .fuel-trend.stable { color: #94a3b8; }
     @@keyframes spin { to { transform: rotate(360deg); } }
 
@@ -1012,19 +1022,19 @@
                     <div class="date-field">
                         <span>From</span>
                         <input type="date" id="dashboardStart"
-                               value="@((string)ViewBag.FilterStart ?? DateTime.UtcNow.AddMonths(-1).ToString("yyyy-MM-dd"))">
+                               value="@((string)ViewBag.FilterStart ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1).ToString("yyyy-MM-dd"))">
                     </div>
                     <div class="date-field">
                         <span>To</span>
                         <input type="date" id="dashboardEnd"
-                               value="@((string)ViewBag.FilterEnd ?? DateTime.UtcNow.ToString("yyyy-MM-dd"))">
+                               value="@((string)ViewBag.FilterEnd ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month + 1, 0).ToString("yyyy-MM-dd"))">
                     </div>
                 </div>
 
                 <div class="quick-filters">
                     <button class="filter-btn" data-range="today">Today</button>
                     <button class="filter-btn" data-range="week">Week</button>
-                    <button class="filter-btn" data-range="month">Month</button>
+                    <button class="filter-btn active" data-range="month">Month</button>
                     <button class="filter-btn" data-range="year">Year</button>
                 </div>
             </div>
@@ -1033,36 +1043,36 @@
         <!-- Stats Row -->
         <div class="stats-row">
             <a href="@Url.Action("Reports", "Manager")" class="stat-card">
-                <div class="stat-icon blue"><i class="bi bi-hourglass-split"></i></div>
+                <div class="stat-icon orange"><i class="bi bi-hourglass-split"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">Pending Review</div>
-                    <div class="stat-number"><span id="mgrPendingCount">—</span></div>
+                    <div class="stat-number"><span id="mgrPendingCount">@(pendingReports.Count(r => r.Report.Status == CEMS.Models.ReportStatus.Submitted))</span></div>
                     <div class="stat-sub">awaiting approval</div>
                 </div>
             </a>
             <a href="@Url.Action("Reports", "Manager")" class="stat-card">
                 <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
                 <div class="stat-content">
-                    <div class="stat-label">Approve</div>
+                    <div class="stat-label">Approved</div>
                     <div class="stat-number" id="mgrApprovedTotal">₱@approvedTodayTotal.ToString("N0")</div>
                     <div class="stat-sub"><span id="mgrApprovedCount">@approvedTodayCount</span> report(s)</div>
                 </div>
             </a>
             <a href="@Url.Action("OverBudget", "Manager")" class="stat-card">
-                <div class="stat-icon orange"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">Over Budget</div>
                     <div class="stat-number"><span id="mgrOverBudget">—</span></div>
                     <div class="stat-sub">reports flagged</div>
                 </div>
             </a>
-            <div class="stat-card">
-                <div class="stat-icon purple"><i class="bi bi-cash-coin"></i></div>
+            <div class="stat-card" id="teamBudgetCard">
+                <div class="stat-icon blue"><i class="bi bi-cash-coin"></i></div>
                 <div class="stat-content">
                     <div class="stat-label">Team Budget</div>
-                    <div class="stat-number">₱@totalBudget.ToString("N0")</div>
+                    <div class="stat-number">₱<span id="mgrTotalBudget">@totalBudget.ToString("N0")</span></div>
                     <div class="stat-sub">
-                        @Math.Round((totalBudget > 0 ? totalSpent / totalBudget : 0) * 100)% utilized
+                        <span id="mgrUtilization">@Math.Round((totalBudget > 0 ? totalSpent / totalBudget : 0) * 100)</span>% utilized
                     </div>
                 </div>
             </div>
@@ -1103,7 +1113,7 @@
         <!-- Two Column Layout -->
         <div class="dashboard-grid">
             <!-- Budget Summary -->
-            <div class="summary-card">
+            <div class="summary-card" id="budgetSummary">
                 <div class="summary-header">
                     <i class="bi bi-calculator-fill"></i> Budget Summary
                 </div>
@@ -1244,16 +1254,16 @@
                         {
                             label: 'Budget',
                             data: allocated,
-                            backgroundColor: 'rgba(2, 136, 209, 0.7)',
-                            borderColor: '#0288d1',
+                            backgroundColor: 'rgba(2, 132, 199, 0.7)',
+                            borderColor: '#0284c7',
                             borderWidth: 1,
                             borderRadius: 4
                         },
                         {
                             label: 'Spent',
                             data: spent,
-                            backgroundColor: 'rgba(46, 125, 50, 0.7)',
-                            borderColor: '#2e7d32',
+                            backgroundColor: 'rgba(22, 163, 74, 0.7)',
+                            borderColor: '#16a34a',
                             borderWidth: 1,
                             borderRadius: 4
                         }
@@ -1312,10 +1322,11 @@
             var endInput = document.getElementById('dashboardEnd');
             if (!startInput || !endInput) return;
 
-            var start = new Date(startInput.value);
-            var end = new Date(endInput.value);
+            var startStr = startInput.value;
+            var endStr = endInput.value;
             var now = new Date();
             var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            var todayStr = today.toISOString().split('T')[0];
 
             document.querySelectorAll('.filter-btn').forEach(function(btn) {
                 btn.classList.remove('active');
@@ -1323,27 +1334,36 @@
 
             var matchingRange = null;
 
-            if (start.getTime() === today.getTime() && end.getTime() === today.getTime()) {
+            // Today
+            if (startStr === todayStr && endStr === todayStr) {
                 matchingRange = 'today';
             }
-            else {
+            // Week
+            else if (!matchingRange) {
                 var weekStart = new Date(today);
                 weekStart.setDate(today.getDate() - today.getDay());
-                if (start.getTime() === weekStart.getTime() && end.getTime() === today.getTime()) {
+                var weekStartStr = weekStart.toISOString().split('T')[0];
+                if (startStr === weekStartStr && endStr === todayStr) {
                     matchingRange = 'week';
                 }
             }
-
+            // Month (1st of month to last day of month)
             if (!matchingRange) {
                 var monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                if (start.getTime() === monthStart.getTime() && end.getTime() === today.getTime()) {
+                var monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                var monthStartStr = monthStart.toISOString().split('T')[0];
+                var monthEndStr = monthEnd.toISOString().split('T')[0];
+                if (startStr === monthStartStr && endStr === monthEndStr) {
                     matchingRange = 'month';
                 }
             }
-
+            // Year
             if (!matchingRange) {
                 var yearStart = new Date(now.getFullYear(), 0, 1);
-                if (start.getTime() === yearStart.getTime() && end.getTime() === today.getTime()) {
+                var yearEnd = new Date(now.getFullYear(), 11, 31);
+                var yearStartStr = yearStart.toISOString().split('T')[0];
+                var yearEndStr = yearEnd.toISOString().split('T')[0];
+                if (startStr === yearStartStr && endStr === yearEndStr) {
                     matchingRange = 'year';
                 }
             }
@@ -1359,6 +1379,11 @@
                 var res = await fetch('@Url.Action("Metrics", "Manager")' + getDateFilters());
                 var data = await res.json();
 
+                // DEBUG: Log the API response to verify correct database values
+                console.log('Metrics API Response:', data);
+                console.log('Approved Count from DB:', data.approvedTodayCount);
+                console.log('Approved Total from DB:', data.approvedTodayTotal);
+
                 var pendingEl = document.getElementById('mgrPendingCount');
                 if (pendingEl) pendingEl.textContent = data.totalPending ?? 0;
 
@@ -1367,7 +1392,8 @@
 
                 var approvedTotalEl = document.getElementById('mgrApprovedTotal');
                 if (approvedTotalEl && data.approvedTodayTotal !== undefined) {
-                    approvedTotalEl.textContent = '₱' + (data.approvedTodayTotal || 0).toFixed(0);
+                    var formattedAmount = (data.approvedTodayTotal || 0).toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                    approvedTotalEl.textContent = '₱' + formattedAmount;
                 }
 
                 var approvedCountEl = document.getElementById('mgrApprovedCount');
@@ -1375,23 +1401,62 @@
                     approvedCountEl.textContent = data.approvedTodayCount ?? 0;
                 }
 
+                // Update Team Budget card from budgets data
+                var totalBudgetAmount = 0;
+                var totalSpentAmount = 0;
+                if (data.budgets && data.budgets.length > 0) {
+                    data.budgets.forEach(function (b) {
+                        totalBudgetAmount += b.allocated || 0;
+                        totalSpentAmount += b.spent || 0;
+                    });
+                }
+                var totalBudgetEl = document.getElementById('mgrTotalBudget');
+                if (totalBudgetEl) {
+                    var formattedBudget = totalBudgetAmount.toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                    totalBudgetEl.textContent = formattedBudget;
+                }
+                var utilizationEl = document.getElementById('mgrUtilization');
+                if (utilizationEl) {
+                    var utilization = totalBudgetAmount > 0 ? Math.round((totalSpentAmount / totalBudgetAmount) * 100) : 0;
+                    utilizationEl.textContent = utilization;
+                }
+
                 var container = document.getElementById('budgetOverview');
                 if (container && data.budgets && data.budgets.length > 0) {
                     container.innerHTML = '';
                     data.budgets.forEach(function (b) {
-                        var pct = b.allocated === 0 ? 0 : Math.min(100, Math.round((b.spent / b.allocated) * 100));
+                        var pctRaw = b.allocated === 0 ? 0 : (b.spent / b.allocated) * 100;
+                        var pct = Math.min(100, pctRaw);
+                        var pctDisplay = pctRaw > 0 && pctRaw < 1 ? pctRaw.toFixed(1) : Math.round(pct);
                         var fillClass = pct >= 100 ? 'danger' : pct >= 80 ? 'warning' : '';
                         var div = document.createElement('div');
                         div.className = 'budget-item';
                         div.innerHTML =
                             '<div class="budget-row">' +
                                 '<span class="budget-category">' + b.category + '</span>' +
-                                '<span class="budget-numbers">₱' + b.spent.toFixed(0) + ' / ₱' + b.allocated.toFixed(0) + '</span>' +
+                                '<span class="budget-numbers">₱' + b.spent.toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0}) + ' / ₱' + b.allocated.toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0}) + '</span>' +
                             '</div>' +
                             '<div class="progress-bar"><div class="progress-fill ' + fillClass + '" style="width:' + pct + '%"></div></div>' +
-                            '<div class="budget-percent">' + pct + '% used</div>';
+                            '<div class="budget-percent">' + pctDisplay + '% used</div>';
                         container.appendChild(div);
                     });
+
+                    // Update Budget Summary card
+                    var allocatedEl = document.querySelector('#budgetSummary .summary-row:nth-child(1) .value');
+                    if (allocatedEl) {
+                        allocatedEl.textContent = '₱' + totalBudgetAmount.toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                    }
+                    var spentEl = document.querySelector('#budgetSummary .summary-row:nth-child(2) .value');
+                    if (spentEl) {
+                        spentEl.textContent = '₱' + totalSpentAmount.toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                    }
+                    var remainingEl = document.querySelector('#budgetSummary .summary-row:nth-child(3) .value');
+                    if (remainingEl) {
+                        var remaining = totalBudgetAmount - totalSpentAmount;
+                        remainingEl.textContent = '₱' + remaining.toLocaleString('en-PH', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                        remainingEl.classList.remove('negative', 'positive');
+                        remainingEl.classList.add(remaining < 0 ? 'negative' : 'positive');
+                    }
                 } else if (container) {
                     container.innerHTML = '<p class="empty-state">No budget categories found.</p>';
                 }
@@ -1409,10 +1474,10 @@
                             datasets: [{
                                 label: 'Monthly Spending',
                                 data: data.monthTotals,
-                                borderColor: '#2e7d32',
-                                backgroundColor: 'rgba(46,125,50,0.12)',
+                                borderColor: '#16a34a',
+                                backgroundColor: 'rgba(22,163,74,0.12)',
                                 fill: true, tension: 0.4, borderWidth: 2,
-                                pointBackgroundColor: '#2e7d32', pointBorderColor: '#fff', pointBorderWidth: 1, pointRadius: 3
+                                pointBackgroundColor: '#16a34a', pointBorderColor: '#fff', pointBorderWidth: 1, pointRadius: 3
                             }]
                         },
                         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { drawBorder: false }, ticks: { font: { size: 9 } } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } }, layout: { padding: 0 } }
@@ -1430,7 +1495,7 @@
                         type: 'doughnut',
                         data: {
                             labels: ['Submitted', 'Approved', 'Rejected'],
-                            datasets: [{ data: [sc, ac, rc], backgroundColor: ['#0288d1', '#2e7d32', '#d32f2f'], borderWidth: 0 }]
+                            datasets: [{ data: [sc, ac, rc], backgroundColor: ['#f59e0b', '#16a34a', '#dc2626'], borderWidth: 0 }]
                         },
                         options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { font: { size: 9 }, boxWidth: 8, boxHeight: 8 } } }, layout: { padding: 0 } }
                     });
@@ -1563,8 +1628,10 @@
                         start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - day);
                     } else if (range === 'month') {
                         start = new Date(now.getFullYear(), now.getMonth(), 1);
+                        end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
                     } else if (range === 'year') {
                         start = new Date(now.getFullYear(), 0, 1);
+                        end = new Date(now.getFullYear(), 11, 31);
                     }
 
                     var startStr = start.toISOString().split('T')[0];
