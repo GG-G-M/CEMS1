@@ -1,39 +1,81 @@
-# Flutter_E-Commerece_Dimdi 
+# Tech-Driven Media Agency System
 
-This is a Laravel Project for CCE-106 E-Commerce Subsystem <br> December 16, 2025
+## Overview
 
-___
+This is an ASP.NET Core web application deployed on MonsterASP.NET with a cloud-hosted SQL Server 2022 database.
 
-<h1>The Program Overall</h1>
+The system provides:
 
-___
+* Online booking and scheduling
+* Database-driven content management
+* Secure client access
+* Cloud deployment integration
 
-<h3>Customer Side</h3>
-This is where the Customer will Browse, Order, and Buy Products
-<p align="center">
-  <img src="PicForGithub/Customer.gif" width="300" />
-</p>
+---
 
-<p align="center">
-  <img src="PicForGithub/1.jpg" width="100" />
-  <img src="PicForGithub/2.jpg" width="100" />
-  <img src="PicForGithub/3.jpg" width="100" />
-</p>
+## System Architecture
 
-<p align="center">  
-  <img src="PicForGithub/4.jpg" width="100" />
-  <img src="PicForGithub/5.jpg" width="100" />
-  <img src="PicForGithub/6.jpg" width="100" />
-</p>
+User
+↓
+MonsterASP.NET (ASP.NET Core Web App)
+↓
+Cloud SQL Server 2022 Database
 
-___
+---
 
-<h3>Admin Side</h3>
-This is were the Admin can Set the Values for product, and other functionalities as Stock In, Stock Out.
-<p align="center">
-  <img src="PicForGithub/Admin.gif" width="300" />
-</p>
+## Technologies Used
 
-___
+* ASP.NET Core
+* Entity Framework Core
+* Microsoft SQL Server 2022
+* Visual Studio 2022
+* HTML, CSS, Bootstrap
 
-<h3>Rider Side</h3>
+---
+
+## Deployment Summary (MonsterASP.NET)
+
+### 1. Create Database
+
+* Add SQL Server 2022 database in MonsterASP.NET
+* Enable remote access temporarily
+* Connect using SSMS
+* Generate scripts from local database (Schema and Data)
+* Execute script in cloud database
+* Disable remote access after migration
+
+### 2. Create Website
+
+* Add website in MonsterASP.NET (Free Plan)
+* Download Publish Profile from Deploy section
+
+### 3. Publish from Visual Studio
+
+* Open project in Visual Studio
+* Click Publish
+* Import Publish Profile
+* Deploy
+
+Once completed, access the provided domain to verify deployment.
+
+---
+
+## Local Setup
+
+1. Clone the repository
+2. Open in Visual Studio
+3. Update `appsettings.json` with your connection string
+4. Run database migrations if needed
+5. Run the project locally
+
+---
+
+## Notes
+
+* Disable remote database access after migration
+* Keep connection strings secure
+* Perform regular database backups
+
+---
+
+Status: Deployed and Operational
